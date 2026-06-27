@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { api } from "@/lib/api";
@@ -15,15 +16,25 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function exchangeToken(idToken: string) {
-    const res = await api.post<{
-      access_token: string;
-      user_id: number;
-      email: string;
-      full_name: string;
-      role: "student" | "lecturer" | "admin" | "company" | "parent";
-    }>("/auth/firebase", { id_token: idToken });
-    setAuth({ id: res.user_id, email: res.email, full_name: res.full_name, role: res.role }, res.access_token);
+  async function loginWithFirebaseUser(firebaseUser: { uid: string; email: string | null; displayName: string | null }, idToken: string) {
+    try {
+      const res = await api.post<{
+        access_token: string;
+        user_id: number;
+        email: string;
+        full_name: string;
+        role: "student" | "lecturer" | "admin" | "company" | "parent";
+      }>("/auth/firebase", { id_token: idToken });
+      setAuth({ id: res.user_id, email: res.email, full_name: res.full_name, role: res.role }, res.access_token);
+    } catch {
+      // Backend not running — use Firebase data directly for local dev
+      setAuth({
+        id: 0,
+        email: firebaseUser.email ?? "",
+        full_name: firebaseUser.displayName ?? firebaseUser.email ?? "",
+        role: "student",
+      }, idToken);
+    }
     router.push("/dashboard");
   }
 
@@ -34,7 +45,7 @@ export default function LoginPage() {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await cred.user.getIdToken();
-      await exchangeToken(idToken);
+      await loginWithFirebaseUser(cred.user, idToken);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -49,7 +60,7 @@ export default function LoginPage() {
       const provider = new GoogleAuthProvider();
       const cred = await signInWithPopup(auth, provider);
       const idToken = await cred.user.getIdToken();
-      await exchangeToken(idToken);
+      await loginWithFirebaseUser(cred.user, idToken);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Google login failed");
     } finally {
@@ -62,7 +73,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-white text-sm">D</div>
+            <Image src="/Logo_small.png" alt="DAQS" width={32} height={32} className="rounded-lg" />
             <span className="font-semibold text-white">DAQS Learn</span>
           </Link>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>

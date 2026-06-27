@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const features = [
   {
@@ -39,7 +40,7 @@ export default function Home() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#060d1a]/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center font-bold text-white text-sm">D</div>
+          <Image src="/Logo_small.png" alt="DAQS" width={32} height={32} className="rounded-lg" />
           <span className="font-semibold text-white">DAQS Learn</span>
           <span className="text-white/30 text-xs ml-1">by N³ SmartSolutions</span>
         </div>
