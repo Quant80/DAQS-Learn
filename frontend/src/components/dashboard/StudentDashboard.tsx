@@ -1,0 +1,130 @@
+"use client";
+import Link from "next/link";
+
+const modules = [
+  { icon: "🧮", label: "Notebook", desc: "Jupyter cloud notebooks", href: "/dashboard/notebook", color: "sky" },
+  { icon: "💻", label: "Studio", desc: "Browser VS Code IDE", href: "/dashboard/studio", color: "indigo" },
+  { icon: "🤖", label: "AI Tutor", desc: "Ask Claude anything", href: "/dashboard/tutor", color: "violet" },
+  { icon: "🧪", label: "Labs", desc: "Docker sandbox", href: "/dashboard/labs", color: "emerald" },
+  { icon: "📋", label: "Assessments", desc: "Quizzes & assignments", href: "/dashboard/assessments", color: "amber" },
+  { icon: "📡", label: "Classroom", desc: "Live video sessions", href: "/dashboard/classroom", color: "rose" },
+];
+
+const activityItems = [
+  { text: "Account created successfully", time: "Just now", icon: "✅" },
+  { text: "Welcome to DAQS Learn!", time: "Just now", icon: "🎉" },
+];
+
+interface Props {
+  user: { full_name: string; email: string; role: string };
+}
+
+export default function StudentDashboard({ user }: Props) {
+  const firstName = user.full_name.split(" ")[0];
+
+  return (
+    <div className="p-6 lg:p-8 max-w-5xl">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">
+          Welcome back, {firstName} 👋
+        </h1>
+        <p className="text-white/40 mt-1 text-sm">Here's your learning overview</p>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        {[
+          { label: "Courses Enrolled", value: "0", icon: "📚", note: "Start exploring" },
+          { label: "Hours Learned", value: "0h", icon: "⏱", note: "Keep going" },
+          { label: "Assignments Due", value: "0", icon: "📋", note: "All clear" },
+          { label: "AI Sessions", value: "0", icon: "🤖", note: "Ask Claude" },
+        ].map((s) => (
+          <div key={s.label} className="bg-white/[0.03] border border-white/8 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-lg">{s.icon}</span>
+              <span className="text-[10px] text-white/20">{s.note}</span>
+            </div>
+            <div className="text-2xl font-bold text-white">{s.value}</div>
+            <div className="text-xs text-white/35 mt-0.5">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Launch banner */}
+      <div className="bg-gradient-to-r from-sky-500/10 to-indigo-500/10 border border-sky-500/20 rounded-2xl px-5 py-4 mb-8 flex items-center gap-4">
+        <span className="text-2xl shrink-0">🚀</span>
+        <div>
+          <div className="font-semibold text-sky-300 text-sm">Platform launching soon</div>
+          <div className="text-white/45 text-xs mt-0.5">
+            Your account is ready. Modules go live as each phase completes. You'll be notified when Notebook, Studio, and AI Tutor launch.
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Modules */}
+        <div className="lg:col-span-2">
+          <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">Learning Modules</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {modules.map((m) => (
+              <div
+                key={m.label}
+                className="bg-white/[0.03] border border-white/8 rounded-2xl p-4 flex flex-col gap-2 opacity-60"
+              >
+                <span className="text-2xl">{m.icon}</span>
+                <div>
+                  <div className="font-semibold text-white text-sm">{m.label}</div>
+                  <div className="text-white/35 text-xs">{m.desc}</div>
+                </div>
+                <span className="text-[10px] text-white/20 border border-white/8 rounded-full px-2 py-0.5 self-start">
+                  Coming soon
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-4">
+          {/* Recent activity */}
+          <div>
+            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">Recent Activity</h2>
+            <div className="bg-white/[0.03] border border-white/8 rounded-2xl divide-y divide-white/5">
+              {activityItems.map((a, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-base">{a.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-white/70 text-xs">{a.text}</div>
+                    <div className="text-white/25 text-[10px] mt-0.5">{a.time}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick actions */}
+          <div>
+            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">Quick Actions</h2>
+            <div className="space-y-2">
+              <Link href="/dashboard/courses" className="flex items-center gap-3 bg-white/[0.03] border border-white/8 hover:border-sky-500/25 hover:bg-white/[0.06] rounded-xl px-4 py-3 transition-all group">
+                <span className="text-base">📚</span>
+                <span className="text-white/70 group-hover:text-white text-sm transition-colors">Browse courses</span>
+              </Link>
+              <div className="flex items-center gap-3 bg-white/[0.03] border border-white/8 rounded-xl px-4 py-3 opacity-40 cursor-default">
+                <span className="text-base">🤖</span>
+                <span className="text-white/50 text-sm">Ask AI Tutor</span>
+                <span className="ml-auto text-[10px] text-white/20 border border-white/10 rounded px-1">soon</span>
+              </div>
+              <div className="flex items-center gap-3 bg-white/[0.03] border border-white/8 rounded-xl px-4 py-3 opacity-40 cursor-default">
+                <span className="text-base">🧮</span>
+                <span className="text-white/50 text-sm">Open Notebook</span>
+                <span className="ml-auto text-[10px] text-white/20 border border-white/10 rounded px-1">soon</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
