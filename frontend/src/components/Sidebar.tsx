@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/auth";
 
 const studentNav = [
   { icon: "⊞", label: "Dashboard", href: "/dashboard" },
+  { icon: "📈", label: "My Progress", href: "/dashboard/progress" },
   { icon: "📚", label: "My Courses", href: "/dashboard/courses" },
   { icon: "🧮", label: "Notebook", href: "/dashboard/notebook", soon: true },
   { icon: "💻", label: "Studio", href: "/dashboard/studio", soon: true },

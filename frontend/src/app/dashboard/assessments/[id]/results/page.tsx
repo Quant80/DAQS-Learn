@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { getAssessment } from "@/data/assessments";
 import { useResultsStore } from "@/store/assessmentResults";
+import { useLearningProfile } from "@/store/learningProfile";
 
 function ScoreRing({ percentage }: { percentage: number }) {
   const color =
@@ -33,11 +34,22 @@ function ScoreRing({ percentage }: { percentage: number }) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { useEffect } from "react";
+
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const result = useResultsStore((s) => s.getResult(id));
   const assessment = getAssessment(id);
+  const recordAssessment = useLearningProfile((s) => s.recordAssessment);
+
+  useEffect(() => {
+    if (result && assessment) {
+      recordAssessment(assessment.subject, result.percentage, result.totalScore, result.maxScore);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!result || !assessment) {
     return (

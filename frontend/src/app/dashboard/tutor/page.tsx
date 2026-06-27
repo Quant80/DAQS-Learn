@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuthStore } from "@/store/auth";
+import { useLearningProfile } from "@/store/learningProfile";
 
 interface Message {
   role: "user" | "assistant";
@@ -123,6 +124,7 @@ function TypingIndicator() {
 
 export default function TutorPage() {
   const user = useAuthStore((s) => s.user);
+  const recordTutorMessage = useLearningProfile((s) => s.recordTutorMessage);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -141,6 +143,7 @@ export default function TutorPage() {
     const userMsg: Message = { role: "user", content: content.trim() };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
+    recordTutorMessage(content.trim());
     setInput("");
     setStreaming(true);
 
