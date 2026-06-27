@@ -43,10 +43,10 @@ export default function StudentDashboard({ user }: Props) {
           <div key={s.label} className="bg-white/[0.03] border border-white/8 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-lg">{s.icon}</span>
-              <span className="text-[10px] text-white/20">{s.note}</span>
+              <span className="text-[10px] text-white/45">{s.note}</span>
             </div>
             <div className="text-2xl font-bold text-white">{s.value}</div>
-            <div className="text-xs text-white/35 mt-0.5">{s.label}</div>
+            <div className="text-xs text-white/60 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -65,7 +65,7 @@ export default function StudentDashboard({ user }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Modules */}
         <div className="lg:col-span-2">
-          <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">Learning Modules</h2>
+          <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Learning Modules</h2>
           <div className="grid grid-cols-2 gap-3">
             {modules.map((m) => (
               <div
@@ -75,7 +75,7 @@ export default function StudentDashboard({ user }: Props) {
                 <span className="text-2xl">{m.icon}</span>
                 <div>
                   <div className="font-semibold text-white text-sm">{m.label}</div>
-                  <div className="text-white/35 text-xs">{m.desc}</div>
+                  <div className="text-white/60 text-xs">{m.desc}</div>
                 </div>
                 <span className="text-[10px] text-white/20 border border-white/8 rounded-full px-2 py-0.5 self-start">
                   Coming soon
@@ -89,14 +89,14 @@ export default function StudentDashboard({ user }: Props) {
         <div className="space-y-4">
           {/* Recent activity */}
           <div>
-            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">Recent Activity</h2>
+            <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Recent Activity</h2>
             <div className="bg-white/[0.03] border border-white/8 rounded-2xl divide-y divide-white/5">
               {activityItems.map((a, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-3">
                   <span className="text-base">{a.icon}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-white/70 text-xs">{a.text}</div>
-                    <div className="text-white/25 text-[10px] mt-0.5">{a.time}</div>
+                    <div className="text-white/85 text-xs">{a.text}</div>
+                    <div className="text-white/45 text-[10px] mt-0.5">{a.time}</div>
                   </div>
                 </div>
               ))}
@@ -105,7 +105,7 @@ export default function StudentDashboard({ user }: Props) {
 
           {/* Quick actions */}
           <div>
-            <h2 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-3">Quick Actions</h2>
+            <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Quick Actions</h2>
             <div className="space-y-2">
               <Link href="/dashboard/courses" className="flex items-center gap-3 bg-white/[0.03] border border-white/8 hover:border-sky-500/25 hover:bg-white/[0.06] rounded-xl px-4 py-3 transition-all group">
                 <span className="text-base">📚</span>

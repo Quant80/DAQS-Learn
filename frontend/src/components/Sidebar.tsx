@@ -48,7 +48,7 @@ export default function Sidebar() {
         <Image src="/Logo_small.png" alt="DAQS" width={30} height={30} className="rounded-lg" />
         <div>
           <div className="text-white text-sm font-bold leading-tight">DAQS Learn</div>
-          <div className="text-white/25 text-[10px] capitalize">{user?.role ?? "student"}</div>
+          <div className="text-white/50 text-[10px] capitalize">{user?.role ?? "student"}</div>
         </div>
       </div>
 
@@ -63,8 +63,8 @@ export default function Sidebar() {
               className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm transition-all group ${
                 active
                   ? "bg-sky-500/15 text-sky-300 font-semibold"
-                  : "text-white/50 hover:text-white/80 hover:bg-white/5"
-              } ${item.soon ? "cursor-default opacity-60" : ""}`}
+                  : "text-white/70 hover:text-white hover:bg-white/5"
+              } ${item.soon ? "cursor-default opacity-50" : ""}`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-base leading-none">{item.icon}</span>
@@ -88,7 +88,7 @@ export default function Sidebar() {
           </div>
           <div className="min-w-0">
             <div className="text-white text-xs font-medium truncate">{user?.full_name}</div>
-            <div className="text-white/30 text-[10px] truncate">{user?.email}</div>
+            <div className="text-white/50 text-[10px] truncate">{user?.email}</div>
           </div>
         </div>
         <button
