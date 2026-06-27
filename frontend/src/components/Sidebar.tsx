@@ -11,7 +11,7 @@ const studentNav = [
   { icon: "💻", label: "Studio", href: "/dashboard/studio", soon: true },
   { icon: "🤖", label: "AI Tutor", href: "/dashboard/tutor" },
   { icon: "🧪", label: "Labs", href: "/dashboard/labs", soon: true },
-  { icon: "📋", label: "Assessments", href: "/dashboard/assessments", soon: true },
+  { icon: "📋", label: "Assessments", href: "/dashboard/assessments" },
   { icon: "📡", label: "Classroom", href: "/dashboard/classroom", soon: true },
 ];
 
