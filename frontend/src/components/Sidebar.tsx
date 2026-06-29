@@ -8,10 +8,10 @@ const studentNav = [
   { icon: "⊞", label: "Dashboard", href: "/dashboard" },
   { icon: "📈", label: "My Progress", href: "/dashboard/progress" },
   { icon: "📚", label: "My Courses", href: "/dashboard/courses" },
-  { icon: "🧮", label: "Notebook", href: "/dashboard/notebook", soon: true },
-  { icon: "💻", label: "Studio", href: "/dashboard/studio", soon: true },
+  { icon: "🧮", label: "Notebook", href: "/dashboard/notebook" },
+  { icon: "💻", label: "Studio", href: "/dashboard/studio" },
   { icon: "🤖", label: "AI Tutor", href: "/dashboard/tutor" },
-  { icon: "🧪", label: "Labs", href: "/dashboard/labs", soon: true },
+  { icon: "🧪", label: "Labs", href: "/dashboard/labs" },
   { icon: "📋", label: "Assessments", href: "/dashboard/assessments" },
   { icon: "📡", label: "Classroom", href: "/dashboard/classroom", soon: true },
 ];

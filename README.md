@@ -23,7 +23,7 @@ DAQS Learn combines cloud notebooks, a browser IDE, AI tutoring, live classrooms
 | Auth | Firebase Authentication |
 | AI Tutor | Claude API (Anthropic) |
 | Notebooks | JupyterHub *(Phase 5)* |
-| Browser IDE | OpenVSCode Server *(Phase 6)* |
+| Browser IDE | code-server (VS Code) *(Phase 6)* |
 | File Storage | Cloudflare R2 *(Phase 4)* |
 | Live Classroom | LiveKit *(Phase 11)* |
 | Whiteboard | tldraw *(Phase 12)* |
@@ -190,17 +190,17 @@ Visit: http://localhost:3000
 |---|---|---|
 | 1 | Project Foundation | ✅ Done |
 | 2 | Authentication + Roles | ✅ Done |
-| 3 | User Dashboards | 🔄 In progress |
+| 3 | User Dashboards | ✅ Done |
 | 4 | File Storage (Cloudflare R2) | ⏳ Planned |
-| 5 | DAQS Notebook (JupyterHub) | ⏳ Planned |
-| 6 | DAQS Studio (OpenVSCode) | ⏳ Planned |
-| 7 | Docker Labs | ⏳ Planned |
-| 8 | AI Tutor (Claude) | ⏳ Planned |
-| 9 | Assessment Engine | ⏳ Planned |
+| 5 | DAQS Notebook (JupyterLab) | ✅ Done |
+| 6 | DAQS Studio (code-server) | ✅ Done |
+| 7 | Docker Labs | ✅ Done |
+| 8 | AI Tutor (Claude) | ✅ Done |
+| 9 | Assessment Engine | ✅ Done |
 | 10 | Course Management (LMS) | ⏳ Planned |
 | 11 | Live Classroom (LiveKit) | ⏳ Planned |
 | 12 | Interactive Whiteboard (tldraw) | ⏳ Planned |
-| 13 | Learning Intelligence Engine | ⏳ Planned |
+| 13 | Learning Intelligence Engine | ✅ Done |
 | 14 | Payments (PayFast + Stripe + Ozow) | ⏳ Planned |
 | 15 | Certificates | ⏳ Planned |
 | 16 | Consulting Portal | ⏳ Planned |

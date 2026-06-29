@@ -57,7 +57,58 @@ services:
       - backend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_NOTEBOOK_URL: http://localhost:8888
+      NEXT_PUBLIC_NOTEBOOK_TOKEN: daqs2024
+      NEXT_PUBLIC_STUDIO_URL: http://localhost:8080
+      NEXT_PUBLIC_LABS_URL: http://localhost:7681
+
+  # ── Phase 5: DAQS Notebook ─────────────────────────────────────────────────
+  notebook:
+    image: quay.io/jupyter/scipy-notebook:latest
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    volumes:
+      - notebook_data:/home/jovyan/work
+    environment:
+      JUPYTER_TOKEN: "daqs2024"
+      JUPYTER_ENABLE_LAB: "yes"
+    command: >
+      start-notebook.sh
+      --ServerApp.token=daqs2024
+      --ServerApp.allow_origin=*
+      --ServerApp.tornado_settings={"headers":{"Content-Security-Policy":"frame-ancestors *"}}
+
+  # ── Phase 6: DAQS Studio ───────────────────────────────────────────────────
+  studio:
+    image: codercom/code-server:latest
+    restart: unless-stopped
+    user: "1000"
+    ports:
+      - "8080:8080"
+    volumes:
+      - studio_data:/home/coder/project
+    environment:
+      PASSWORD: "daqs2024"
+    command: >
+      --bind-addr 0.0.0.0:8080
+      --auth password
+      /home/coder/project
+
+  # ── Phase 7: Docker Labs ───────────────────────────────────────────────────
+  labs:
+    build:
+      context: ./labs
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "7681:7681"
+    volumes:
+      - labs_workspace:/workspace
 
 volumes:
   postgres_data:
   redis_data:
+  notebook_data:
+  studio_data:
+  labs_workspace:
