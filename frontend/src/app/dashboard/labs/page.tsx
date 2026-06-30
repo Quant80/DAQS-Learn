@@ -2,6 +2,7 @@
 import { useState } from "react";
 
 const LABS_URL = process.env.NEXT_PUBLIC_LABS_URL ?? "http://localhost:7681";
+const DOCKER_LAB_URL = process.env.NEXT_PUBLIC_DOCKER_LAB_URL ?? "http://localhost:7682";
 
 interface Lab {
   id: string;
@@ -119,15 +120,97 @@ const LABS: Lab[] = [
   },
 ];
 
+const DOCKER_LABS: Lab[] = [
+  {
+    id: "docker-lab-01",
+    title: "Write Your First Dockerfile",
+    icon: "📦",
+    difficulty: "beginner",
+    duration: 20,
+    tags: ["Docker", "Dockerfile", "Build"],
+    description: "Containerize a Python script — write a Dockerfile, build it, and run it.",
+    objectives: [
+      "Pick a base image",
+      "Set a working directory",
+      "Copy files into the image",
+      "Define the run command",
+      "Build and run your own image",
+    ],
+    starter: "cd lab_01_dockerfile && cat INSTRUCTIONS.md",
+  },
+  {
+    id: "docker-lab-02",
+    title: "Images & Containers",
+    icon: "🗂️",
+    difficulty: "beginner",
+    duration: 20,
+    tags: ["Docker", "CLI", "Containers"],
+    description: "Master the core commands: run, exec, logs, stop, rm.",
+    objectives: [
+      "Pull and run images",
+      "List running containers",
+      "Exec into a running container",
+      "Read container logs",
+      "Stop and remove containers",
+    ],
+    starter: "cd lab_02_images_containers && cat INSTRUCTIONS.md",
+  },
+  {
+    id: "docker-lab-03",
+    title: "Volumes & Persistence",
+    icon: "💾",
+    difficulty: "intermediate",
+    duration: 25,
+    tags: ["Docker", "Volumes", "Storage"],
+    description: "Understand why containers are throwaway, and how volumes persist data.",
+    objectives: [
+      "See data disappear without a volume",
+      "Create and use a named volume",
+      "Share data between containers",
+      "Use bind mounts",
+    ],
+    starter: "cd lab_03_volumes && cat INSTRUCTIONS.md",
+  },
+  {
+    id: "docker-lab-04",
+    title: "Multi-Container Apps",
+    icon: "🧩",
+    difficulty: "intermediate",
+    duration: 30,
+    tags: ["Docker", "Compose", "Redis", "Flask"],
+    description: "Run a web app + Redis with docker-compose, all in one command.",
+    objectives: [
+      "Write a docker-compose.yml",
+      "Build and start multiple services",
+      "Connect services over a shared network",
+      "View logs across services",
+      "Tear down a full stack cleanly",
+    ],
+    starter: "cd lab_04_compose && cat INSTRUCTIONS.md",
+  },
+];
+
 const diffConfig = {
   beginner:     { bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400" },
   intermediate: { bg: "bg-amber-500/10",   border: "border-amber-500/20",   text: "text-amber-400"   },
   advanced:     { bg: "bg-red-500/10",      border: "border-red-500/20",     text: "text-red-400"     },
 };
 
+type Category = "python" | "docker";
+
 export default function LabsPage() {
+  const [category, setCategory] = useState<Category>("python");
   const [selected, setSelected] = useState<Lab | null>(null);
   const [terminalOpen, setTerminalOpen] = useState(false);
+
+  const labs = category === "python" ? LABS : DOCKER_LABS;
+  const labsUrl = category === "python" ? LABS_URL : DOCKER_LAB_URL;
+
+  function switchCategory(next: Category) {
+    setCategory(next);
+    setSelected(null);
+    setTerminalOpen(false);
+  }
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 0px)" }}>
@@ -138,11 +221,36 @@ export default function LabsPage() {
         </div>
         <div>
           <h1 className="text-white font-bold text-sm leading-tight">Docker Labs</h1>
-          <p className="text-white/35 text-[10px]">{LABS.length} labs · Interactive Python sandbox</p>
+          <p className="text-white/35 text-[10px]">{labs.length} labs · Interactive sandbox</p>
         </div>
+
+        {/* Category tabs */}
+        <div className="ml-4 flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
+          <button
+            onClick={() => switchCategory("python")}
+            className={`text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
+              category === "python"
+                ? "bg-sky-500 text-white"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            🐍 Python Lab
+          </button>
+          <button
+            onClick={() => switchCategory("docker")}
+            className={`text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
+              category === "docker"
+                ? "bg-sky-500 text-white"
+                : "text-white/50 hover:text-white"
+            }`}
+          >
+            🐳 Docker Lab
+          </button>
+        </div>
+
         <div className="ml-auto flex items-center gap-2">
           <a
-            href={LABS_URL}
+            href={labsUrl}
             target="_blank"
             rel="noreferrer"
             className="text-xs text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
@@ -170,7 +278,7 @@ export default function LabsPage() {
           <div className="p-6 lg:p-8 max-w-6xl space-y-6">
             {/* Lab grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {LABS.map((lab) => {
+              {labs.map((lab) => {
                 const c = diffConfig[lab.difficulty];
                 const active = selected?.id === lab.id;
                 return (
@@ -297,7 +405,7 @@ export default function LabsPage() {
               </button>
             </div>
             <iframe
-              src={LABS_URL}
+              src={labsUrl}
               className="flex-1 border-0 w-full"
               title="DAQS Labs Terminal"
             />

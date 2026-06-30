@@ -61,6 +61,7 @@ services:
       NEXT_PUBLIC_NOTEBOOK_TOKEN: daqs2024
       NEXT_PUBLIC_STUDIO_URL: http://localhost:8080
       NEXT_PUBLIC_LABS_URL: http://localhost:7681
+      NEXT_PUBLIC_DOCKER_LAB_URL: http://localhost:7682
 
   # ── Phase 5: DAQS Notebook ─────────────────────────────────────────────────
   notebook:
@@ -87,15 +88,16 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - studio_data:/home/coder/project
+      - studio_data:/home/coder/daqs-workspace
+      - studio_config:/home/coder/.config
     environment:
       PASSWORD: "daqs2024"
     command: >
       --bind-addr 0.0.0.0:8080
       --auth password
-      /home/coder/project
+      /home/coder/daqs-workspace
 
-  # ── Phase 7: Docker Labs ───────────────────────────────────────────────────
+  # ── Phase 7: Docker Labs (Python sandbox) ─────────────────────────────────
   labs:
     build:
       context: ./labs
@@ -106,9 +108,38 @@ services:
     volumes:
       - labs_workspace:/workspace
 
+  # ── Phase 7b: Docker Lab — isolated Docker-in-Docker sandbox ──────────────
+  # Nested daemon only, never touches the host's real Docker socket.
+  docker-lab-dind:
+    image: docker:27-dind
+    restart: unless-stopped
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    volumes:
+      - docker_lab_data:/var/lib/docker
+    # No host port mapping — only reachable on the internal compose network
+
+  docker-lab-terminal:
+    build:
+      context: ./docker-lab
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - docker-lab-dind
+    environment:
+      DOCKER_HOST: tcp://docker-lab-dind:2375
+    ports:
+      - "7682:7682"
+    volumes:
+      - docker_lab_workspace:/workspace
+
 volumes:
   postgres_data:
   redis_data:
   notebook_data:
   studio_data:
+  studio_config:
   labs_workspace:
+  docker_lab_data:
+  docker_lab_workspace:
