@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U daqs"]
+      test: ["CMD-SHELL", "pg_isready -U daqs -d daqs_learn"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,7 +52,7 @@ services:
     build: ./frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     depends_on:
       - backend
     environment:
@@ -73,11 +73,11 @@ services:
     environment:
       JUPYTER_TOKEN: "daqs2024"
       JUPYTER_ENABLE_LAB: "yes"
-    command: >
-      start-notebook.sh
-      --ServerApp.token=daqs2024
-      --ServerApp.allow_origin=*
-      --ServerApp.tornado_settings={"headers":{"Content-Security-Policy":"frame-ancestors *"}}
+    command:
+      - start-notebook.py
+      - --ServerApp.token=daqs2024
+      - --ServerApp.allow_origin=*
+      - --ServerApp.tornado_settings={"headers":{"Content-Security-Policy":"frame-ancestors *"}}
 
   # ── Phase 6: DAQS Studio ───────────────────────────────────────────────────
   studio:

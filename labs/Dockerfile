@@ -6,7 +6,7 @@ FROM tsl0922/ttyd:latest AS ttyd-source
 FROM python:3.12-slim
 
 # Copy ttyd binary
-COPY --from=ttyd-source /usr/local/bin/ttyd /usr/local/bin/ttyd
+COPY --from=ttyd-source /usr/bin/ttyd /usr/local/bin/ttyd
 
 # System tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,4 +35,4 @@ RUN echo 'export PS1="\[\033[0;36m\]daqs-labs\[\033[0m\]:\[\033[0;33m\]\w\[\033[
 
 EXPOSE 7681
 
-CMD ["ttyd", "--port", "7681", "--writable", "--check-origin", "false", "bash"]
+CMD ["ttyd", "--port", "7681", "--writable", "bash"]

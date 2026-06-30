@@ -21,7 +21,11 @@ def bubble_sort(arr: list[int]) -> list[int]:
     Return the sorted list.
     """
     arr = arr.copy()
-    # TODO: implement
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
     return arr
 
 
@@ -33,8 +37,22 @@ def merge_sort(arr: list[int]) -> list[int]:
     """
     if len(arr) <= 1:
         return arr
-    # TODO: split, recurse, merge
-    return arr
+    mid = len(arr) // 2
+    left = merge_sort(arr[:mid])
+    right = merge_sort(arr[mid:])
+
+    merged = []
+    i = j = 0
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            merged.append(left[i])
+            i += 1
+        else:
+            merged.append(right[j])
+            j += 1
+    merged.extend(left[i:])
+    merged.extend(right[j:])
+    return merged
 
 
 # ── Exercise 3: Quicksort ──────────────────────────────────
@@ -46,8 +64,10 @@ def quicksort(arr: list[int]) -> list[int]:
     """
     if len(arr) <= 1:
         return arr
-    # TODO: partition around pivot, recurse
-    return arr
+    pivot = arr[-1]
+    left = [x for x in arr[:-1] if x <= pivot]
+    right = [x for x in arr[:-1] if x > pivot]
+    return quicksort(left) + [pivot] + quicksort(right)
 
 
 # ── Exercise 4: Benchmark ──────────────────────────────────
