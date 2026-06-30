@@ -1,19 +1,36 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { complete, hasProviderKey, DEFAULT_MODEL_ID } from "@/lib/aiProvider";
+import type { AIProvider } from "@/lib/aiProvider";
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json({ error: "API key not configured" }, { status: 500 });
+  const {
+    studentName, subjectStats, tutorTopics,
+    totalAssessments, averageScore, streak, totalTutorMessages, achievements,
+    provider = "claude",
+    modelId = DEFAULT_MODEL_ID,
+  } = await req.json() as {
+    studentName: string;
+    subjectStats: Record<string, { scores: number[]; attempts: number }>;
+    tutorTopics: Record<string, { count: number }>;
+    totalAssessments: number;
+    averageScore: number;
+    streak: number;
+    totalTutorMessages: number;
+    achievements: number;
+    provider?: AIProvider;
+    modelId?: string;
+  };
+
+  const activeProvider = hasProviderKey(provider) ? provider : hasProviderKey("claude") ? "claude" : null;
+  if (!activeProvider) {
+    return Response.json({ error: "No AI provider configured" }, { status: 503 });
   }
+  const activeModel = activeProvider === provider ? modelId : DEFAULT_MODEL_ID;
 
-  const { studentName, subjectStats, tutorTopics, totalAssessments, averageScore, streak, totalTutorMessages, achievements } = await req.json();
-
-  const subjectSummary = Object.entries(subjectStats as Record<string, { scores: number[]; attempts: number }>)
+  const subjectSummary = Object.entries(subjectStats)
     .map(([subject, stats]) => {
       const avg = stats.scores.length
-        ? Math.round(stats.scores.reduce((a: number, b: number) => a + b, 0) / stats.scores.length)
+        ? Math.round(stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length)
         : 0;
       const trend = stats.scores.length > 1
         ? stats.scores[stats.scores.length - 1] > stats.scores[0] ? "improving" : "declining"
@@ -21,7 +38,7 @@ export async function POST(req: NextRequest) {
       return `${subject}: avg ${avg}% over ${stats.attempts} attempt(s), trend: ${trend}`;
     }).join("\n");
 
-  const tutorSummary = Object.entries(tutorTopics as Record<string, { count: number }>)
+  const tutorSummary = Object.entries(tutorTopics)
     .sort(([, a], [, b]) => b.count - a.count)
     .slice(0, 5)
     .map(([subject, { count }]) => `${subject} (${count} questions)`)
@@ -62,13 +79,7 @@ Generate a JSON response with this exact structure:
 Be specific, personalised, encouraging, and actionable. Reference actual subjects and scores where possible.`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const text = (response.content[0] as { text: string }).text;
+    const text = await complete(activeProvider, activeModel, prompt, 1024);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Invalid response");
     return Response.json(JSON.parse(jsonMatch[0]));

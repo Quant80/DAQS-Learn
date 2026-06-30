@@ -3,10 +3,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
+import { api } from "@/lib/api";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function loginWithFirebaseUser(firebaseUser: { uid: string; email: string | null; displayName: string | null }, idToken: string) {
+  async function afterFirebaseAuth(uid: string, userEmail: string, displayName: string, idToken: string) {
     try {
       const res = await api.post<{
         access_token: string;
@@ -27,15 +27,27 @@ export default function LoginPage() {
       }>("/auth/firebase", { id_token: idToken });
       setAuth({ id: res.user_id, email: res.email, full_name: res.full_name, role: res.role }, res.access_token);
     } catch {
-      // Backend not running — use Firebase data directly for local dev
-      setAuth({
-        id: 0,
-        email: firebaseUser.email ?? "",
-        full_name: firebaseUser.displayName ?? firebaseUser.email ?? "",
-        role: "student",
-      }, idToken);
+      setAuth({ id: 0, email: userEmail, full_name: displayName || userEmail, role: "student" }, idToken);
     }
     router.push("/dashboard");
+  }
+
+  async function handleGoogleSignIn() {
+    setError("");
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const idToken = await result.user.getIdToken();
+      await afterFirebaseAuth(result.user.uid, result.user.email ?? "", result.user.displayName ?? "", idToken);
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string };
+      if (e.code !== "auth/popup-closed-by-user") {
+        setError(e.message ?? "Google sign-in failed");
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleEmailLogin(e: React.FormEvent) {
@@ -43,26 +55,16 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await cred.user.getIdToken();
-      await loginWithFirebaseUser(cred.user, idToken);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGoogleLogin() {
-    setError("");
-    setLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(auth, provider);
-      const idToken = await cred.user.getIdToken();
-      await loginWithFirebaseUser(cred.user, idToken);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Google login failed");
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Login failed"); return; }
+      await afterFirebaseAuth(data.uid, data.email, data.displayName, data.idToken);
+    } catch {
+      setError("Network error — please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -87,24 +89,26 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Google sign-in */}
           <button
-            onClick={handleGoogleLogin}
+            type="button"
+            onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 border border-white/15 hover:border-white/30 hover:bg-white/5 text-white py-2.5 rounded-xl transition-all text-sm font-medium"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 disabled:opacity-50 text-gray-800 font-medium py-2.5 rounded-xl transition-colors text-sm"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.658 14.013 17.64 11.706 17.64 9.2z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+              <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
             </svg>
             Continue with Google
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-white/30 text-xs">or</span>
-            <div className="flex-1 h-px bg-white/10" />
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-white/25 text-xs">or</span>
+            <div className="flex-1 border-t border-white/10" />
           </div>
 
           <form onSubmit={handleEmailLogin} className="space-y-3">

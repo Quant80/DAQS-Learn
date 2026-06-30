@@ -1,21 +1,31 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { complete, hasProviderKey, DEFAULT_MODEL_ID } from "@/lib/aiProvider";
+import type { AIProvider } from "@/lib/aiProvider";
 
 interface MarkRequest {
   question: string;
   answer: string;
   type: "short_answer" | "code";
   maxPoints: number;
+  provider?: AIProvider;
+  modelId?: string;
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
+  const { question, answer, type, maxPoints, provider = "claude", modelId = DEFAULT_MODEL_ID }: MarkRequest = await req.json();
+
+  if (!hasProviderKey(provider)) {
+    // Fall back to Claude if the selected provider key isn't set
+    if (!hasProviderKey("claude")) {
+      return Response.json(
+        { score: 0, feedback: "No AI provider configured. Please contact the administrator." },
+        { status: 200 }
+      );
+    }
   }
 
-  const { question, answer, type, maxPoints }: MarkRequest = await req.json();
+  const activeProvider = hasProviderKey(provider) ? provider : "claude";
+  const activeModel = activeProvider === provider ? modelId : DEFAULT_MODEL_ID;
 
   const prompt =
     type === "code"
@@ -58,13 +68,7 @@ Respond in exactly this JSON format:
 }`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 512,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const text = (response.content[0] as { text: string }).text.trim();
+    const text = await complete(activeProvider, activeModel, prompt, 512);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Invalid response format");
 

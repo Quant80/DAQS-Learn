@@ -27,6 +27,9 @@ const trajectoryConfig = {
 };
 
 export default function ProgressPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const user = useAuthStore((s) => s.user);
   const profile = useLearningProfile();
   const [report, setReport] = useState<AIReport | null>(null);
@@ -132,24 +135,26 @@ export default function ProgressPage() {
       {/* Top stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: "Assessments", value: totalAssessments, icon: "📋", sub: "completed" },
-          { label: "Avg Score", value: `${avgScore}%`, icon: "🎯", sub: "across all subjects" },
-          { label: "Streak", value: `${profile.streak}d`, icon: "🔥", sub: "consecutive days" },
-          { label: "AI Sessions", value: profile.totalTutorMessages, icon: "🤖", sub: "messages sent" },
-          { label: "Badges", value: profile.achievements.length, icon: "🏆", sub: `of ${9} earned` },
+          { label: "Assessments", value: mounted ? totalAssessments : null,              icon: "📋", sub: "completed" },
+          { label: "Avg Score",   value: mounted ? `${avgScore}%` : null,                icon: "🎯", sub: "across all subjects" },
+          { label: "Streak",      value: mounted ? `${profile.streak}d` : null,          icon: "🔥", sub: "consecutive days" },
+          { label: "AI Sessions", value: mounted ? profile.totalTutorMessages : null,    icon: "🤖", sub: "messages sent" },
+          { label: "Badges",      value: mounted ? profile.achievements.length : null,   icon: "🏆", sub: `of 9 earned` },
         ].map((s) => (
           <div key={s.label} className="bg-white/[0.03] border border-white/8 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-lg">{s.icon}</span>
             </div>
-            <div className="text-xl font-bold text-white">{s.value}</div>
+            <div className="text-xl font-bold text-white">
+              {s.value ?? <span className="inline-block w-8 h-5 rounded bg-white/10 animate-pulse align-middle" />}
+            </div>
             <div className="text-xs text-white/50 mt-0.5">{s.label}</div>
             <div className="text-[10px] text-white/25 mt-0.5">{s.sub}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {mounted && <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Skill Radar */}
         <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-5">
           <h2 className="text-sm font-bold text-white mb-4">Subject Skill Map</h2>
@@ -260,10 +265,10 @@ export default function ProgressPage() {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* 7-day Activity */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-5">
+      {mounted && <div className="bg-white/[0.03] border border-white/8 rounded-2xl p-5">
         <h2 className="text-sm font-bold text-white mb-4">📅 7-Day Activity</h2>
         {recentActivity.length ? (
           <div className="flex items-end gap-2 h-24">
@@ -287,7 +292,7 @@ export default function ProgressPage() {
         ) : (
           <p className="text-white/30 text-sm">No activity recorded yet — complete assessments or use the AI Tutor to see your activity</p>
         )}
-      </div>
+      </div>}
 
       {/* AI Report */}
       {report && (
