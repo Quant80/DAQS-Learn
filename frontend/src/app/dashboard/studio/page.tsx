@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useStudio, TEMPLATES } from "@/store/studio";
 import type { StudioFile } from "@/store/studio";
 
@@ -652,6 +653,17 @@ export default function StudioPage() {
               >
                 + New Project
               </button>
+              {/* Full page */}
+              <Link
+                href="/studio"
+                title="Open Quick Studio full page"
+                className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 border border-violet-500/25 hover:border-violet-500/50 rounded-xl px-3 py-2 transition-all"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" />
+                </svg>
+                Expand
+              </Link>
             </>
           )}
         </div>
