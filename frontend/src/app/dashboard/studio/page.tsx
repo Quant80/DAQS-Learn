@@ -321,7 +321,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
         {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
-        <div className="w-16 h-16 rounded-2xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center text-3xl">⚡</div>
+        <div className="w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-600/25 flex items-center justify-center text-3xl">⚡</div>
         <div>
           <h2 className="text-xl font-bold text-white">Quick Studio</h2>
           <p className="text-white/40 text-sm mt-2 max-w-sm leading-relaxed">
@@ -330,7 +330,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
         </div>
         <button
           onClick={() => setShowNewProject(true)}
-          className="bg-violet-500 hover:bg-violet-400 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors shadow-lg shadow-violet-500/20"
+          className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors shadow-lg shadow-blue-600/20"
         >
           + New Project
         </button>
@@ -353,7 +353,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
               onChange={(e) => setProjectRenameValue(e.target.value)}
               onBlur={() => { if (project && projectRenameValue.trim()) renameProject(project.id, projectRenameValue.trim()); setRenamingProject(false); }}
               onKeyDown={(e) => { if (e.key === "Enter") { if (project && projectRenameValue.trim()) renameProject(project.id, projectRenameValue.trim()); setRenamingProject(false); } if (e.key === "Escape") setRenamingProject(false); }}
-              className="flex-1 bg-white/10 border border-violet-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none"
+              className="flex-1 bg-white/10 border border-blue-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none"
             />
           ) : (
             <div
@@ -383,7 +383,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
                   onBlur={commitRenameFile}
                   onKeyDown={(e) => { if (e.key === "Enter") commitRenameFile(); if (e.key === "Escape") setRenamingFile(null); }}
                   onClick={(e) => e.stopPropagation()}
-                  className="flex-1 bg-white/10 border border-violet-500/40 rounded px-1 text-white text-xs focus:outline-none min-w-0"
+                  className="flex-1 bg-white/10 border border-blue-500/40 rounded px-1 text-white text-xs focus:outline-none min-w-0"
                 />
               ) : (
                 <span className="text-xs truncate flex-1" onDoubleClick={(e) => { e.stopPropagation(); startRenameFile(file); }}>
@@ -407,7 +407,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
                 onBlur={() => { addFile(); setAddingFile(false); }}
                 onKeyDown={(e) => { if (e.key === "Enter") addFile(); if (e.key === "Escape") { setAddingFile(false); setNewFileName(""); } }}
                 placeholder="filename.py"
-                className="flex-1 bg-white/10 border border-violet-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none min-w-0 placeholder-white/25"
+                className="flex-1 bg-white/10 border border-blue-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none min-w-0 placeholder-white/25"
               />
             </div>
           ) : (
@@ -449,7 +449,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
                 onClick={() => setActiveFile(file.id)}
                 className={`flex items-center gap-1.5 px-3 h-full border-r border-white/8 cursor-pointer text-xs shrink-0 transition-colors ${
                   activeFileId === file.id
-                    ? "bg-[#0a0a10] text-white border-t-2 border-t-violet-500"
+                    ? "bg-[#0a0a10] text-white border-t-2 border-t-blue-500"
                     : "text-white/35 hover:text-white/60 hover:bg-white/[0.03]"
                 }`}
               >
@@ -565,7 +565,7 @@ export default function StudioPage() {
 
         {/* Icon + title */}
         <div className="flex items-center gap-2 mr-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/20 to-violet-500/20 border border-white/10 flex items-center justify-center text-sm">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/20 to-blue-600/20 border border-white/10 flex items-center justify-center text-sm">
             💻
           </div>
           <span className="text-white font-bold text-sm hidden sm:block">DAQS Studio</span>
@@ -588,7 +588,7 @@ export default function StudioPage() {
             onClick={() => setTab("quick")}
             className={`flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
               tab === "quick"
-                ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md"
+                ? "bg-gradient-to-r from-blue-600 to-blue-400 text-white shadow-md"
                 : "text-white/45 hover:text-white/80"
             }`}
           >
@@ -657,7 +657,7 @@ export default function StudioPage() {
               <Link
                 href="/studio"
                 title="Open Quick Studio full page"
-                className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 border border-violet-500/25 hover:border-violet-500/50 rounded-xl px-3 py-2 transition-all"
+                className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/25 hover:border-blue-500/50 rounded-xl px-3 py-2 transition-all"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" />

@@ -204,7 +204,7 @@ export default function QuickStudioFullscreen() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#0a0a10] p-8 text-center space-y-6">
         {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
-        <div className="w-16 h-16 rounded-2xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center text-3xl">⚡</div>
+        <div className="w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-600/25 flex items-center justify-center text-3xl">⚡</div>
         <div>
           <h1 className="text-2xl font-bold text-white">Quick Studio</h1>
           <p className="text-white/40 text-sm mt-2 max-w-sm leading-relaxed">
@@ -213,7 +213,7 @@ export default function QuickStudioFullscreen() {
         </div>
         <button
           onClick={() => setShowNewProject(true)}
-          className="bg-violet-500 hover:bg-violet-400 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors shadow-lg shadow-violet-500/20"
+          className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-3 rounded-xl text-sm transition-colors shadow-lg shadow-blue-600/20"
         >
           + New Project
         </button>
@@ -230,19 +230,8 @@ export default function QuickStudioFullscreen() {
 
       {/* ── Slim top bar ── */}
       <div className="h-10 bg-[#0d0d18] border-b border-white/8 flex items-center px-3 gap-2 shrink-0">
-        {/* Back */}
-        <Link
-          href="/dashboard/studio"
-          className="flex items-center gap-1 text-white/30 hover:text-white/70 text-xs transition-colors mr-1"
-          title="Back to dashboard"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M9 11L5 7l4-4" />
-          </svg>
-        </Link>
-
         {/* Logo mark */}
-        <div className="w-5 h-5 rounded bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 border border-violet-500/20 flex items-center justify-center text-[10px]">⚡</div>
+        <div className="w-5 h-5 rounded bg-gradient-to-br from-blue-600/30 to-blue-400/20 border border-blue-500/20 flex items-center justify-center text-[10px]">⚡</div>
         <span className="text-white/60 text-xs font-semibold">Quick Studio</span>
 
         {/* Project picker */}
@@ -282,16 +271,28 @@ export default function QuickStudioFullscreen() {
           </button>
         )}
 
-        {/* Python status */}
-        <div className={`ml-auto flex items-center gap-1.5 text-[10px] font-semibold ${
-          pyStatus === "ready"   ? "text-emerald-400" :
-          pyStatus === "loading" ? "text-amber-400"   : "text-white/25"
-        }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${
-            pyStatus === "ready"   ? "bg-emerald-400" :
-            pyStatus === "loading" ? "bg-amber-400 animate-pulse" : "bg-white/15"
-          }`} />
-          {pyStatus === "ready" ? "Python ready" : pyStatus === "loading" ? "Loading…" : ""}
+        {/* Python status + Collapse */}
+        <div className="ml-auto flex items-center gap-2">
+          <div className={`hidden sm:flex items-center gap-1.5 text-[10px] font-semibold ${
+            pyStatus === "ready"   ? "text-emerald-400" :
+            pyStatus === "loading" ? "text-amber-400"   : "text-white/25"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              pyStatus === "ready"   ? "bg-emerald-400" :
+              pyStatus === "loading" ? "bg-amber-400 animate-pulse" : "bg-white/15"
+            }`} />
+            {pyStatus === "ready" ? "Python ready" : pyStatus === "loading" ? "Loading…" : ""}
+          </div>
+          <Link
+            href="/dashboard/studio"
+            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/25 hover:border-blue-500/50 bg-blue-500/5 hover:bg-blue-500/10 rounded-lg px-3 py-1.5 transition-all"
+            title="Return to dashboard"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M4.5 1H1v3.5M7.5 1H11v3.5M11 7.5V11H7.5M1 7.5V11h3.5" />
+            </svg>
+            Collapse
+          </Link>
         </div>
       </div>
 
@@ -306,7 +307,7 @@ export default function QuickStudioFullscreen() {
                 onChange={(e) => setProjectRenameValue(e.target.value)}
                 onBlur={() => { if (project && projectRenameValue.trim()) renameProject(project.id, projectRenameValue.trim()); setRenamingProject(false); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { if (project && projectRenameValue.trim()) renameProject(project.id, projectRenameValue.trim()); setRenamingProject(false); } if (e.key === "Escape") setRenamingProject(false); }}
-                className="w-full bg-white/10 border border-violet-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none"
+                className="w-full bg-white/10 border border-blue-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none"
               />
             ) : (
               <div
@@ -337,7 +338,7 @@ export default function QuickStudioFullscreen() {
                     onBlur={commitRenameFile}
                     onKeyDown={(e) => { if (e.key === "Enter") commitRenameFile(); if (e.key === "Escape") setRenamingFile(null); }}
                     onClick={(e) => e.stopPropagation()}
-                    className="flex-1 bg-white/10 border border-violet-500/40 rounded px-1 text-white text-xs focus:outline-none min-w-0"
+                    className="flex-1 bg-white/10 border border-blue-500/40 rounded px-1 text-white text-xs focus:outline-none min-w-0"
                   />
                 ) : (
                   <span className="text-xs truncate flex-1" onDoubleClick={(e) => { e.stopPropagation(); startRenameFile(file); }}>
@@ -361,7 +362,7 @@ export default function QuickStudioFullscreen() {
                   onBlur={() => { addFile(); setAddingFile(false); }}
                   onKeyDown={(e) => { if (e.key === "Enter") addFile(); if (e.key === "Escape") { setAddingFile(false); setNewFileName(""); } }}
                   placeholder="filename.py"
-                  className="flex-1 bg-white/10 border border-violet-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none min-w-0 placeholder-white/25"
+                  className="flex-1 bg-white/10 border border-blue-500/40 rounded px-1.5 py-0.5 text-white text-xs focus:outline-none min-w-0 placeholder-white/25"
                 />
               </div>
             ) : (
@@ -394,7 +395,7 @@ export default function QuickStudioFullscreen() {
                   onClick={() => setActiveFile(file.id)}
                   className={`flex items-center gap-1.5 px-3 h-full border-r border-white/8 cursor-pointer text-xs shrink-0 transition-colors ${
                     activeFileId === file.id
-                      ? "bg-[#0a0a10] text-white border-t-2 border-t-violet-500"
+                      ? "bg-[#0a0a10] text-white border-t-2 border-t-blue-500"
                       : "text-white/35 hover:text-white/60 hover:bg-white/[0.03]"
                   }`}
                 >
