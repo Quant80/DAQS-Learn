@@ -208,15 +208,15 @@ function JupyterLitePane() {
           </button>
           <div className="w-px h-4 bg-white/10" />
           {loading && (
-            <span className="text-amber-400 text-xs flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-emerald-400 text-xs flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Loading Python runtime (~20–30s)…
             </span>
           )}
           <div className="ml-auto flex items-center gap-2">
             <Link
               href="/notebook"
-              className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 border border-amber-500/25 hover:border-amber-500/50 rounded-lg px-2.5 py-1 transition-all"
+              className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/25 hover:border-emerald-500/50 rounded-lg px-2.5 py-1 transition-all"
             >
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" />
@@ -243,8 +243,8 @@ function JupyterLitePane() {
     <div className="flex-1 overflow-y-auto">
       <div className="p-6 lg:p-8 max-w-4xl space-y-6">
         {/* Hero card */}
-        <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/20 rounded-2xl p-8 flex flex-col items-center text-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500/25 to-orange-500/15 border border-amber-500/30 flex items-center justify-center text-4xl shadow-lg shadow-amber-500/10">
+        <div className="bg-gradient-to-br from-emerald-600/10 via-teal-500/5 to-transparent border border-emerald-500/20 rounded-2xl p-8 flex flex-col items-center text-center gap-5">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-600/25 to-teal-500/15 border border-emerald-500/30 flex items-center justify-center text-4xl shadow-lg shadow-emerald-500/10">
             ⚡
           </div>
           <div className="space-y-2">
@@ -258,7 +258,7 @@ function JupyterLitePane() {
           <div className="flex flex-col items-center gap-2">
             <button
               onClick={() => { setLoading(true); setLaunched(true); }}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-amber-500/25 text-sm"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/25 text-sm"
             >
               🚀 Launch JupyterLite
             </button>
@@ -304,9 +304,9 @@ function JupyterLitePane() {
         {/* Starter notebooks */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold text-white/50 uppercase tracking-wider">Starter notebooks by track</h2>
-          <div className="bg-amber-500/[0.04] border border-amber-500/15 rounded-2xl p-4 text-xs text-amber-400/70 flex items-start gap-3">
+          <div className="bg-emerald-500/[0.04] border border-emerald-500/15 rounded-2xl p-4 text-xs text-emerald-400/70 flex items-start gap-3">
             <span className="text-base shrink-0">💡</span>
-            <span>Launch JupyterLite above, then use <strong className="text-amber-300">File → New → Notebook</strong> to start any of these topics.</span>
+            <span>Launch JupyterLite above, then use <strong className="text-emerald-300">File → New → Notebook</strong> to start any of these topics.</span>
           </div>
           {STARTER_NOTEBOOKS.map((track) => {
             const colors = colorMap[track.color];
@@ -359,7 +359,7 @@ export default function NotebookPage() {
 
         {/* Icon + title */}
         <div className="flex items-center gap-2 mr-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/20 to-amber-500/20 border border-white/10 flex items-center justify-center text-sm">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/20 to-emerald-600/20 border border-white/10 flex items-center justify-center text-sm">
             📓
           </div>
           <span className="text-white font-bold text-sm hidden sm:block">DAQS Notebook</span>
@@ -382,8 +382,8 @@ export default function NotebookPage() {
             onClick={() => setTab("lite")}
             className={`flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
               tab === "lite"
-                ? "bg-gradient-to-r from-amber-500 to-orange-400 text-white shadow-md shadow-amber-500/30"
-                : "text-amber-400/60 hover:text-amber-300"
+                ? "bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-600/30"
+                : "text-emerald-400/60 hover:text-emerald-300"
             }`}
           >
             <span>⚡</span>
@@ -421,7 +421,7 @@ export default function NotebookPage() {
           ) : (
             <Link
               href="/notebook"
-              className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 border border-amber-500/25 hover:border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/10 rounded-xl px-3 py-2 transition-all"
+              className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/25 hover:border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/10 rounded-xl px-3 py-2 transition-all"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" />
