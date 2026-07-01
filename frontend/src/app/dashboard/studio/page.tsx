@@ -321,7 +321,7 @@ function QuickStudioPane({ pyStatus, running, showNewProject, setShowNewProject,
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
         {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
-        <div className="w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-600/25 flex items-center justify-center text-3xl">⚡</div>
+        <div className="w-16 h-16 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-3xl">⚡</div>
         <div>
           <h2 className="text-xl font-bold text-white">Quick Studio</h2>
           <p className="text-white/40 text-sm mt-2 max-w-sm leading-relaxed">
@@ -565,7 +565,7 @@ export default function StudioPage() {
 
         {/* Icon + title */}
         <div className="flex items-center gap-2 mr-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/20 to-blue-600/20 border border-white/10 flex items-center justify-center text-sm">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-500/25 to-blue-500/35 border border-white/10 flex items-center justify-center text-sm">
             💻
           </div>
           <span className="text-white font-bold text-sm hidden sm:block">DAQS Studio</span>
@@ -578,7 +578,7 @@ export default function StudioPage() {
             className={`flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
               tab === "full"
                 ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-md"
-                : "text-white/45 hover:text-white/80"
+                : "text-sky-400/50 hover:text-sky-300"
             }`}
           >
             <span>💻</span>
@@ -588,8 +588,8 @@ export default function StudioPage() {
             onClick={() => setTab("quick")}
             className={`flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
               tab === "quick"
-                ? "bg-gradient-to-r from-blue-600 to-blue-400 text-white shadow-md"
-                : "text-white/45 hover:text-white/80"
+                ? "bg-gradient-to-r from-blue-500 to-blue-400 text-white shadow-md shadow-blue-500/30"
+                : "text-blue-400/60 hover:text-blue-300"
             }`}
           >
             <span>⚡</span>
@@ -649,7 +649,7 @@ export default function StudioPage() {
               {/* New project */}
               <button
                 onClick={() => setShowNewProject(true)}
-                className="text-xs text-white/50 hover:text-white border border-white/10 hover:border-white/20 rounded-xl px-3 py-2 transition-all"
+                className="text-xs text-blue-400/70 hover:text-blue-300 border border-blue-500/20 hover:border-blue-500/40 rounded-xl px-3 py-2 transition-all"
               >
                 + New Project
               </button>

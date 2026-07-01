@@ -204,7 +204,7 @@ export default function QuickStudioFullscreen() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#0a0a10] p-8 text-center space-y-6">
         {showNewProject && <NewProjectModal onClose={() => setShowNewProject(false)} />}
-        <div className="w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-600/25 flex items-center justify-center text-3xl">⚡</div>
+        <div className="w-16 h-16 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-3xl">⚡</div>
         <div>
           <h1 className="text-2xl font-bold text-white">Quick Studio</h1>
           <p className="text-white/40 text-sm mt-2 max-w-sm leading-relaxed">
@@ -231,8 +231,8 @@ export default function QuickStudioFullscreen() {
       {/* ── Slim top bar ── */}
       <div className="h-10 bg-[#0d0d18] border-b border-white/8 flex items-center px-3 gap-2 shrink-0">
         {/* Logo mark */}
-        <div className="w-5 h-5 rounded bg-gradient-to-br from-blue-600/30 to-blue-400/20 border border-blue-500/20 flex items-center justify-center text-[10px]">⚡</div>
-        <span className="text-white/60 text-xs font-semibold">Quick Studio</span>
+        <div className="w-5 h-5 rounded bg-gradient-to-br from-blue-500/40 to-blue-400/30 border border-blue-400/30 flex items-center justify-center text-[10px]">⚡</div>
+        <span className="text-blue-300 text-xs font-semibold">Quick Studio</span>
 
         {/* Project picker */}
         <div className="w-px h-4 bg-white/10 mx-1" />
