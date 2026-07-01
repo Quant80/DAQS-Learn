@@ -4,6 +4,213 @@ import dynamic from "next/dynamic";
 import { labTracks, colorMap } from "@/data/labs";
 import type { LabExercise, LabTrack } from "@/data/labs";
 
+const DOCKER_LAB_URL = process.env.NEXT_PUBLIC_DOCKER_LAB_URL ?? "http://localhost:7682";
+
+interface DockerLab {
+  id: string;
+  title: string;
+  icon: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  duration: number;
+  tags: string[];
+  description: string;
+  objectives: string[];
+  starter: string;
+}
+
+const DOCKER_LABS: DockerLab[] = [
+  {
+    id: "docker-lab-01",
+    title: "Write Your First Dockerfile",
+    icon: "📦",
+    difficulty: "beginner",
+    duration: 20,
+    tags: ["Docker", "Dockerfile", "Build"],
+    description: "Containerize a Python script — write a Dockerfile, build it, and run it.",
+    objectives: [
+      "Pick a base image",
+      "Set a working directory",
+      "Copy files into the image",
+      "Define the run command",
+      "Build and run your own image",
+    ],
+    starter: "cd lab_01_dockerfile && cat INSTRUCTIONS.md",
+  },
+  {
+    id: "docker-lab-02",
+    title: "Images & Containers",
+    icon: "🗂️",
+    difficulty: "beginner",
+    duration: 20,
+    tags: ["Docker", "CLI", "Containers"],
+    description: "Master the core commands: run, exec, logs, stop, rm.",
+    objectives: [
+      "Pull and run images",
+      "List running containers",
+      "Exec into a running container",
+      "Read container logs",
+      "Stop and remove containers",
+    ],
+    starter: "cd lab_02_images_containers && cat INSTRUCTIONS.md",
+  },
+  {
+    id: "docker-lab-03",
+    title: "Volumes & Persistence",
+    icon: "💾",
+    difficulty: "intermediate",
+    duration: 25,
+    tags: ["Docker", "Volumes", "Storage"],
+    description: "Understand why containers are throwaway, and how volumes persist data.",
+    objectives: [
+      "See data disappear without a volume",
+      "Create and use a named volume",
+      "Share data between containers",
+      "Use bind mounts",
+    ],
+    starter: "cd lab_03_volumes && cat INSTRUCTIONS.md",
+  },
+  {
+    id: "docker-lab-04",
+    title: "Multi-Container Apps",
+    icon: "🧩",
+    difficulty: "intermediate",
+    duration: 30,
+    tags: ["Docker", "Compose", "Redis", "Flask"],
+    description: "Run a web app + Redis with docker-compose, all in one command.",
+    objectives: [
+      "Write a docker-compose.yml",
+      "Build and start multiple services",
+      "Connect services over a shared network",
+      "View logs across services",
+      "Tear down a full stack cleanly",
+    ],
+    starter: "cd lab_04_compose && cat INSTRUCTIONS.md",
+  },
+];
+
+const diffConfig = {
+  beginner:     { bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400" },
+  intermediate: { bg: "bg-amber-500/10",   border: "border-amber-500/20",   text: "text-amber-400"   },
+  advanced:     { bg: "bg-red-500/10",      border: "border-red-500/20",     text: "text-red-400"     },
+};
+
+function DockerLabPane() {
+  const [selected, setSelected] = useState<DockerLab | null>(null);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+
+  return (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Lab cards area */}
+      <div className={`overflow-y-auto ${terminalOpen ? "" : "flex-1"}`}
+        style={terminalOpen ? { height: "45%" } : {}}>
+        <div className="p-6 max-w-5xl space-y-6">
+          <div>
+            <h2 className="text-white font-bold text-lg">Docker Lab</h2>
+            <p className="text-white/40 text-sm mt-0.5">Real isolated Docker-in-Docker sandbox — run actual containers, build images, compose stacks.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {DOCKER_LABS.map((lab) => {
+              const c = diffConfig[lab.difficulty];
+              const active = selected?.id === lab.id;
+              return (
+                <button
+                  key={lab.id}
+                  onClick={() => setSelected(active ? null : lab)}
+                  className={`text-left rounded-2xl p-5 border transition-all ${
+                    active
+                      ? "bg-sky-500/10 border-sky-500/30 ring-1 ring-sky-500/20"
+                      : "bg-white/[0.03] border-white/8 hover:bg-white/[0.06] hover:border-white/15"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center text-xl`}>
+                      {lab.icon}
+                    </div>
+                    <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${c.bg} ${c.border} ${c.text} capitalize`}>
+                      {lab.difficulty}
+                    </span>
+                  </div>
+                  <h3 className="text-white font-bold text-sm mb-1 leading-snug">{lab.title}</h3>
+                  <p className="text-white/45 text-xs leading-relaxed mb-3">{lab.description}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/30">⏱ {lab.duration} min</span>
+                    <span className={`font-semibold transition-colors ${active ? "text-sky-400" : "text-white/25"}`}>
+                      {active ? "Selected ✓" : "Open →"}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {selected && (
+            <div className="bg-gradient-to-br from-sky-500/10 to-blue-500/5 border border-sky-500/20 rounded-2xl p-6">
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+                <h2 className="text-white font-bold flex items-center gap-2 text-base">
+                  <span>{selected.icon}</span> {selected.title}
+                </h2>
+                <button
+                  onClick={() => setTerminalOpen(true)}
+                  className="text-xs font-bold bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-xl transition-all"
+                >
+                  Open Terminal →
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">Learning Objectives</h3>
+                  <ol className="space-y-2">
+                    {selected.objectives.map((obj, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-xs text-white/65">
+                        <span className="text-sky-400 font-bold shrink-0 w-4">{i + 1}.</span>
+                        {obj}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Run in Terminal</h3>
+                    <div className="bg-[#050d1c] border border-white/10 rounded-xl px-4 py-3">
+                      <code className="text-emerald-300 text-xs font-mono break-all">{selected.starter}</code>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-2">Tags</h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selected.tags.map((tag) => (
+                        <span key={tag} className="text-[10px] text-white/40 bg-white/5 border border-white/8 rounded px-2 py-0.5">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Embedded Docker terminal */}
+      {terminalOpen && (
+        <div className="flex-1 border-t border-white/8 flex flex-col min-h-0">
+          <div className="flex items-center gap-2 px-4 py-2 bg-[#050d1c] border-b border-white/5 shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+            <span className="text-white/25 text-xs font-mono ml-2">docker-lab — bash</span>
+            {selected && (
+              <span className="ml-auto text-[10px] text-sky-400/60 font-mono hidden sm:block">{selected.starter}</span>
+            )}
+            <button onClick={() => setTerminalOpen(false)} className="ml-auto sm:ml-2 text-white/20 hover:text-white/50 text-xs transition-colors">✕</button>
+          </div>
+          <iframe src={DOCKER_LAB_URL} className="flex-1 border-0 w-full" title="DAQS Docker Lab Terminal" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 // ── Pyodide engine ─────────────────────────────────────────────────────────────
@@ -297,19 +504,70 @@ function ExercisePane({ exercise, pyStatus, onBack }: {
 }
 
 // ── Track & Exercise browser ───────────────────────────────────────────────────
+type Category = "python" | "docker";
+
 export default function LabsPage() {
+  const [category, setCategory] = useState<Category>("python");
   const [activeTrack, setActiveTrack] = useState<LabTrack>(labTracks[0]);
   const [activeExercise, setActiveExercise] = useState<LabExercise | null>(null);
   const pyStatus = usePyodideStatus();
 
-  if (activeExercise) {
+  if (activeExercise && category === "python") {
     return <ExercisePane exercise={activeExercise} pyStatus={pyStatus} onBack={() => setActiveExercise(null)} />;
+  }
+
+  if (category === "docker") {
+    return (
+      <div className="flex flex-col h-[calc(100vh-56px)]">
+        {/* Category tab bar */}
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/8 bg-[#060d1a] shrink-0">
+          <div className="flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
+            <button
+              onClick={() => setCategory("python")}
+              className="text-xs font-semibold rounded-lg px-3 py-1.5 transition-all text-white/50 hover:text-white"
+            >
+              🐍 Python Lab
+            </button>
+            <button
+              onClick={() => setCategory("docker")}
+              className="text-xs font-semibold rounded-lg px-3 py-1.5 transition-all bg-sky-500 text-white"
+            >
+              🐳 Docker Lab
+            </button>
+          </div>
+          <a href={DOCKER_LAB_URL} target="_blank" rel="noreferrer"
+            className="ml-auto text-xs text-white/40 hover:text-white/70 border border-white/10 rounded-lg px-3 py-1.5 transition-all">
+            Open terminal ↗
+          </a>
+        </div>
+        <DockerLabPane />
+      </div>
+    );
   }
 
   const colors = colorMap[activeTrack.color] ?? colorMap["sky"];
 
   return (
-    <div className="flex h-[calc(100vh-56px)]">
+    <div className="flex flex-col h-[calc(100vh-56px)]">
+      {/* Category tab bar */}
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/8 bg-[#060d1a] shrink-0">
+        <div className="flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
+          <button
+            onClick={() => setCategory("python")}
+            className="text-xs font-semibold rounded-lg px-3 py-1.5 transition-all bg-sky-500 text-white"
+          >
+            🐍 Python Lab
+          </button>
+          <button
+            onClick={() => setCategory("docker")}
+            className="text-xs font-semibold rounded-lg px-3 py-1.5 transition-all text-white/50 hover:text-white"
+          >
+            🐳 Docker Lab
+          </button>
+        </div>
+      </div>
+
+    <div className="flex flex-1 min-h-0">
       {/* Track sidebar */}
       <div className="w-52 shrink-0 border-r border-white/8 bg-[#09090f] flex flex-col">
         <div className="p-3 border-b border-white/8">
@@ -402,31 +660,19 @@ export default function LabsPage() {
           ))}
         </div>
 
-        {IS_VPS ? (
-          <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-2xl p-5 flex gap-4 items-start">
-            <span className="text-2xl shrink-0">🐳</span>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <div className="text-emerald-300 font-semibold text-sm">Docker Labs — Live on DAQS VPS</div>
-              </div>
-              <p className="text-white/40 text-xs leading-relaxed">
-                Code runs on the DAQS Oracle Cloud VPS (ARM · Ubuntu 22.04). Execution is fast, isolated, and server-side — no browser download needed.
-              </p>
-            </div>
+        <button
+          onClick={() => setCategory("docker")}
+          className="w-full text-left bg-sky-500/[0.05] hover:bg-sky-500/10 border border-sky-500/20 rounded-2xl p-5 flex gap-4 items-center transition-all group"
+        >
+          <span className="text-2xl shrink-0">🐳</span>
+          <div className="flex-1">
+            <div className="text-sky-300 font-semibold text-sm">Docker Lab — Real containerised sandbox</div>
+            <p className="text-white/35 text-xs mt-0.5">Build images, run containers, compose stacks — in a real isolated Docker environment.</p>
           </div>
-        ) : (
-          <div className="bg-white/[0.02] border border-white/6 rounded-2xl p-5 flex gap-4 items-start">
-            <span className="text-2xl shrink-0">🐳</span>
-            <div>
-              <div className="text-white/60 font-semibold text-sm">Docker Labs coming soon</div>
-              <p className="text-white/25 text-xs mt-1 leading-relaxed">
-                Full containerised environments will launch when a VPS is provisioned — isolated Linux shells with Docker, GPU access, and persistent storage.
-              </p>
-            </div>
-          </div>
-        )}
+          <span className="text-white/25 group-hover:text-sky-400 text-sm transition-colors">→</span>
+        </button>
       </div>
+    </div>
     </div>
   );
 }
