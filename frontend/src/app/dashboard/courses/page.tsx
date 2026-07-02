@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { courses, tracks, getTotalLessons } from "@/data/courses";
 import type { Course } from "@/data/courses";
@@ -26,10 +26,15 @@ const trackColorClass: Record<string, { ring: string; bg: string; text: string }
 
 function CourseCard({ course }: { course: Course }) {
   const { isEnrolled, getCourseProgress, getProgressPercent } = useCourseProgress();
-  const enrolled = isEnrolled(course.id);
-  const cp = getCourseProgress(course.id);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Guard against SSR/client mismatch: localStorage only exists on the client.
+  // Use server-safe defaults until after first mount.
+  const enrolled = mounted && isEnrolled(course.id);
+  const cp = mounted ? getCourseProgress(course.id) : undefined;
   const totalLessons = getTotalLessons(course);
-  const pct = getProgressPercent(course.id, totalLessons);
+  const pct = mounted ? getProgressPercent(course.id, totalLessons) : 0;
   const tc = trackColorClass[course.trackColor] ?? trackColorClass.sky;
 
   return (
@@ -98,9 +103,11 @@ export default function CoursesPage() {
   const [activeTrack, setActiveTrack] = useState<string>("all");
   const [activeDifficulty, setActiveDifficulty] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { progress } = useCourseProgress();
 
-  const enrolledIds = Object.keys(progress);
+  const enrolledIds = mounted ? Object.keys(progress) : [];
   const enrolledCourses = courses.filter((c) => enrolledIds.includes(c.id));
 
   const filtered = courses.filter((c) => {

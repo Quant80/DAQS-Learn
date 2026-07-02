@@ -6,7 +6,191 @@ const JUPYTERLITE_URL  = "https://jupyterlite.github.io/demo/lab/index.html";
 const JUPYTERLAB_URL   = process.env.NEXT_PUBLIC_NOTEBOOK_URL ?? "";
 const JUPYTERLAB_TOKEN = process.env.NEXT_PUBLIC_NOTEBOOK_TOKEN ?? "";
 
-type Tab = "lab" | "lite";
+type Tab = "lab" | "lite" | "library";
+
+// ── Course notebooks served from /public/notebooks/ ──────────────────────────
+const COURSE_NOTEBOOKS = [
+  {
+    id: "00_introduction",
+    file: "00_introduction.ipynb",
+    title: "00 — Introduction to Python",
+    desc: "What is programming, compilers vs interpreters, Python history, features, applications, and your first print() programs.",
+    chapter: "Introduction",
+    subject: "Python Programming",
+    icon: "🐍",
+    color: "sky",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "01_get_started",
+    file: "01_get_started.ipynb",
+    title: "01 — Get Started",
+    desc: "Machine vs programming languages, high-level vs low-level, compilers vs interpreters (movie analogy), IDEs, and syntax rules.",
+    chapter: "Chapter 1",
+    subject: "Python Programming",
+    icon: "🚀",
+    color: "violet",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "02_hello_python",
+    file: "02_hello_python.ipynb",
+    title: "02 — Hello Python",
+    desc: "What Python is, its history and creator, key features, 10 application areas, and your first Python programs with print().",
+    chapter: "Chapter 2",
+    subject: "Python Programming",
+    icon: "👋",
+    color: "amber",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "03_variables",
+    file: "03_variables.ipynb",
+    title: "03 — Variables",
+    desc: "What variables are, their 5 properties, how to create/print/input them, naming rules, keywords, id(), reassigning, and del.",
+    chapter: "Chapter 3",
+    subject: "Python Programming",
+    icon: "📦",
+    color: "indigo",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "04_data_types",
+    file: "04_data_types.ipynb",
+    title: "04 — Data Types",
+    desc: "None, bool, int, float, complex, str, list, tuple, set, dict — with type(), comments, and full type conversion using int(), float(), str(), ord(), chr() and more.",
+    chapter: "Chapter 4",
+    subject: "Python Programming",
+    icon: "🗂️",
+    color: "sky",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "05_operators",
+    file: "05_operators.ipynb",
+    title: "05 — Operators",
+    desc: "Unary, assignment, arithmetic (+, -, *, /, //, %, **), math module, compound operators (+=, -=…), relational, and identity operators (is, is not).",
+    chapter: "Chapter 5",
+    subject: "Python Programming",
+    icon: "🔢",
+    color: "violet",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "06_conditional_statements",
+    file: "06_conditional_statements.ipynb",
+    title: "06 — Conditional Statements",
+    desc: "if, if-else, if-elif-else, nested if, indentation, logical operators, variable swapping (4 methods), bitwise operators, membership operators, and eval().",
+    chapter: "Chapter 6",
+    subject: "Python Programming",
+    icon: "🔀",
+    color: "amber",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "07_functions",
+    file: "07_functions.ipynb",
+    title: "07 — Functions",
+    desc: "def, return, 5 argument types (*args, **kwargs), nested/recursive functions, local vs global scope, lambda, filter/map/reduce, decorators, and generators.",
+    chapter: "Chapter 7",
+    subject: "Python Programming",
+    icon: "⚙️",
+    color: "indigo",
+    difficulty: "Intermediate",
+    pages: 1,
+  },
+  {
+    id: "08_strings",
+    file: "08_strings.ipynb",
+    title: "08 — Strings",
+    desc: "Creating strings, positive/negative indexing, slicing, immutability, concatenation, repetition, len(), find(), index(), count(), replace(), split(), join(), case methods, and validation.",
+    chapter: "Chapter 8",
+    subject: "Python Programming",
+    icon: "📝",
+    color: "sky",
+    difficulty: "Beginner",
+    pages: 1,
+  },
+  {
+    id: "09_list_tuple",
+    file: "09_list_tuple.ipynb",
+    title: "09 — List and Tuple",
+    desc: "Creating, accessing, modifying lists; 9 cloning methods (shallow/deep copy); len(), count(), max(), min(), sum(), random.choice(); nested lists, aliasing, relational & membership operators; and immutable tuples with packing/unpacking.",
+    chapter: "Chapter 9",
+    subject: "Python Programming",
+    icon: "📋",
+    color: "violet",
+    difficulty: "Intermediate",
+    pages: 1,
+  },
+  {
+    id: "10_control_flow",
+    file: "10_control_flow.ipynb",
+    title: "10 — Control Flow (Loops)",
+    desc: "while and for loops, infinite loops, all 4 nested loop types, break/continue/pass statements, list comprehension, tuple comprehension with generators, and star/number/alphabet pattern drawing.",
+    chapter: "Chapter 10",
+    subject: "Python Programming",
+    icon: "🔁",
+    color: "amber",
+    difficulty: "Intermediate",
+    pages: 1,
+  },
+  {
+    id: "11_set",
+    file: "11_set.ipynb",
+    title: "11 — Set",
+    desc: "Unique element collections: creating sets (3 methods), add/update/copy, pop/remove/discard/clear, all set operations (union |, intersection &, difference -, symmetric_difference ^), issubset/issuperset/isdisjoint, Venn diagrams, and frozenset.",
+    chapter: "Chapter 11",
+    subject: "Python Programming",
+    icon: "🔷",
+    color: "indigo",
+    difficulty: "Intermediate",
+    pages: 1,
+  },
+  {
+    id: "12_dictionary",
+    file: "12_dictionary.ipynb",
+    title: "12 — Dictionary",
+    desc: "Key-value pairs: 5 creation methods (zip, fromkeys), insert/update, accessing with get/setdefault/items/keys/values, del/pop/popitem/clear, dictionary comprehension, nested dicts, and real-world examples.",
+    chapter: "Chapter 12",
+    subject: "Python Programming",
+    icon: "📖",
+    color: "sky",
+    difficulty: "Intermediate",
+    pages: 1,
+  },
+  {
+    id: "13_oop",
+    file: "13_oop.ipynb",
+    title: "13 — Object Oriented Programming",
+    desc: "Classes, objects, constructors, instance/static/local variables, encapsulation (public/protected/private), single/multilevel/multiple inheritance, polymorphism (overriding, operator overloading, duck typing), and abstract classes.",
+    chapter: "Chapter 13",
+    subject: "Python Programming",
+    icon: "🏭",
+    color: "violet",
+    difficulty: "Advanced",
+    pages: 1,
+  },
+  {
+    id: "14_exception_handling",
+    file: "14_exception_handling.ipynb",
+    title: "14 — Exception Handling",
+    desc: "Syntax vs runtime errors, normal vs abnormal flow, try-except, printing exception info, multiple except blocks, default except, finally block (3 cases), nested try-except-finally, else block, valid combinations, and custom exceptions with raise.",
+    chapter: "Chapter 14",
+    subject: "Python Programming",
+    icon: "🛡️",
+    color: "amber",
+    difficulty: "Advanced",
+    pages: 1,
+  },
+];
 
 // ── Starter notebook topics ──────────────────────────────────────────────────
 const STARTER_NOTEBOOKS = [
@@ -50,6 +234,133 @@ const colorMap: Record<string, { pill: string; dot: string }> = {
   amber:  { pill: "bg-amber-500/15 text-amber-400 border-amber-500/25",   dot: "bg-amber-400"  },
   indigo: { pill: "bg-indigo-500/15 text-indigo-400 border-indigo-500/25", dot: "bg-indigo-400" },
 };
+
+const diffColor: Record<string, string> = {
+  Beginner:     "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+  Intermediate: "text-amber-400  bg-amber-500/10  border-amber-500/25",
+  Advanced:     "text-rose-400   bg-rose-500/10   border-rose-500/25",
+};
+
+// ── Course Library pane ──────────────────────────────────────────────────────
+function CourseLibraryPane() {
+  const [launching, setLaunching] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function openInJupyterLab(nb: typeof COURSE_NOTEBOOKS[0]) {
+    setLaunching(nb.id);
+    setError(null);
+    try {
+      const res = await fetch("/api/notebooks/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: nb.file }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        setError(data.error ?? "Failed to open notebook in JupyterLab.");
+      } else {
+        window.open(data.url, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      setError("Could not reach the server. Check your connection.");
+    } finally {
+      setLaunching(null);
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-6 lg:p-8 max-w-4xl space-y-6">
+
+        {/* Header */}
+        <div>
+          <h2 className="text-lg font-bold text-white">Course Notebooks</h2>
+          <p className="text-white/40 text-sm mt-1">
+            Click <strong className="text-white/60">Open in JupyterLab</strong> to launch the notebook directly in your browser — no download needed.
+          </p>
+        </div>
+
+        {/* How-to banner */}
+        <div className="bg-sky-500/[0.06] border border-sky-500/20 rounded-2xl p-4 flex items-start gap-3 text-xs text-sky-300/70">
+          <span className="text-base shrink-0">🖥️</span>
+          <span>
+            Notebooks open in <strong className="text-sky-200">JupyterLab</strong> in a new tab — you can run code, edit cells, and save your work.
+            Use <strong className="text-sky-200">⬇ Download</strong> if you want a copy on your computer.
+          </span>
+        </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/25 rounded-2xl p-4 flex items-start gap-3 text-xs text-red-400">
+            <span className="text-base shrink-0">⚠️</span>
+            <div>
+              <p className="font-bold mb-0.5">Could not open JupyterLab</p>
+              <p className="text-red-400/70">{error}</p>
+              <p className="text-white/30 mt-1.5">
+                If JupyterLab is not running yet, start it with <code className="bg-white/5 px-1 rounded">docker compose up jupyter</code> or use the ⬇ Download button instead.
+              </p>
+            </div>
+            <button onClick={() => setError(null)} className="ml-auto text-white/30 hover:text-white/60 shrink-0 text-base">×</button>
+          </div>
+        )}
+
+        {/* Notebook cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {COURSE_NOTEBOOKS.map((nb) => (
+            <div key={nb.id} className="bg-white/[0.03] border border-white/10 hover:border-sky-500/30 hover:bg-white/[0.05] rounded-2xl p-5 flex flex-col gap-3 transition-all">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center text-xl shrink-0">
+                    {nb.icon}
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold">{nb.subject}</p>
+                    <h3 className="text-white font-bold text-sm leading-tight">{nb.title}</h3>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 shrink-0 ${diffColor[nb.difficulty] ?? diffColor.Beginner}`}>
+                  {nb.difficulty}
+                </span>
+              </div>
+
+              <p className="text-white/40 text-xs leading-relaxed">{nb.desc}</p>
+
+              <div className="mt-auto flex items-center gap-2 pt-1">
+                {/* Download */}
+                <a
+                  href={`/notebooks/${nb.file}`}
+                  download={nb.file}
+                  className="flex items-center gap-1.5 text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white px-3 py-1.5 rounded-xl transition-all shrink-0"
+                >
+                  ⬇ Download
+                </a>
+                {/* Open in JupyterLab */}
+                <button
+                  onClick={() => openInJupyterLab(nb)}
+                  disabled={!!launching}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold bg-gradient-to-r from-sky-600 to-indigo-500 hover:from-sky-500 hover:to-indigo-400 disabled:opacity-50 text-white px-3 py-2 rounded-xl transition-all shadow-md shadow-sky-600/20"
+                >
+                  {launching === nb.id ? (
+                    <><span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" /> Uploading…</>
+                  ) : (
+                    <>🖥️ Open in JupyterLab ↗</>
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Coming soon placeholder */}
+          <div className="bg-white/[0.015] border border-dashed border-white/8 rounded-2xl p-5 flex flex-col items-center justify-center text-center gap-2 min-h-[160px]">
+            <span className="text-3xl opacity-30">📓</span>
+            <p className="text-white/20 text-xs">More notebooks coming soon</p>
+            <p className="text-white/15 text-[11px]">Variables · Data Types · Operators · Strings…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── JupyterLab tab pane ──────────────────────────────────────────────────────
 function JupyterLabPane({ labStatus }: { labStatus: "checking" | "online" | "offline" }) {
@@ -341,7 +652,7 @@ function JupyterLitePane() {
 
 // ── Root ─────────────────────────────────────────────────────────────────────
 export default function NotebookPage() {
-  const [tab, setTab] = useState<Tab>("lite");
+  const [tab, setTab] = useState<Tab>("library");
   const [labStatus, setLabStatus] = useState<"checking" | "online" | "offline">("checking");
 
   useEffect(() => {
@@ -368,15 +679,15 @@ export default function NotebookPage() {
         {/* Tab switcher */}
         <div className="flex items-center gap-0.5 bg-white/5 border border-white/8 rounded-xl p-1">
           <button
-            onClick={() => setTab("lab")}
+            onClick={() => setTab("library")}
             className={`flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
-              tab === "lab"
-                ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-md"
-                : "text-sky-400/50 hover:text-sky-300"
+              tab === "library"
+                ? "bg-gradient-to-r from-violet-600 to-sky-500 text-white shadow-md"
+                : "text-violet-400/60 hover:text-violet-300"
             }`}
           >
-            <span>🖥️</span>
-            <span>JupyterLab</span>
+            <span>📚</span>
+            <span>Course Library</span>
           </button>
           <button
             onClick={() => setTab("lite")}
@@ -388,6 +699,17 @@ export default function NotebookPage() {
           >
             <span>⚡</span>
             <span>JupyterLite</span>
+          </button>
+          <button
+            onClick={() => setTab("lab")}
+            className={`flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
+              tab === "lab"
+                ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-md"
+                : "text-sky-400/50 hover:text-sky-300"
+            }`}
+          >
+            <span>🖥️</span>
+            <span>JupyterLab</span>
           </button>
         </div>
 
@@ -434,7 +756,9 @@ export default function NotebookPage() {
 
       {/* ── Content ── */}
       <div className="flex flex-1 min-h-0">
-        {tab === "lab" ? (
+        {tab === "library" ? (
+          <CourseLibraryPane />
+        ) : tab === "lab" ? (
           <JupyterLabPane labStatus={labStatus} />
         ) : (
           <JupyterLitePane />

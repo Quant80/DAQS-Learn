@@ -175,7 +175,7 @@ Graph plotting (CRITICAL — always follow these):
 - The "expr" field uses standard math syntax: use * for multiplication, ^ or ** for powers, sqrt(), sin(), cos(), etc.
 - Include xIntercepts as an array (may be empty []), yIntercept as an object, vertex if applicable, axisOfSymmetry as x-value number if applicable
 - After the graph block, continue with your explanation in normal text
-- **CRITICAL — y-axis range**: Always set "yMin" to a clearly negative value (at minimum -1, ideally vertex_y - 2) even when the function never goes negative. This ensures the x-axis is visible as a distinct line and the curve's approach/touch point is clearly visible to students. A graph that sits on the edge of the frame is confusing — there must always be visible space below the x-axis.
+- **CRITICAL — y-axis range**: Always set "yMin" to at least vertex_y - 3 (minimum -3 even when the function never goes negative) and "yMax" to at least vertex_y + range * 0.2. The curve must visually cut through the x-axis with clear space below it — never let the minimum point sit flush on the bottom edge of the chart.
 
 ---
 

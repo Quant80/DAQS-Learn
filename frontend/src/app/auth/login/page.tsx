@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
@@ -15,6 +15,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Pick up the result after Google redirect returns to this page
+  useEffect(() => {
+    setLoading(true);
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result) return;
+        const idToken = await result.user.getIdToken();
+        await afterFirebaseAuth(result.user.uid, result.user.email ?? "", result.user.displayName ?? "", idToken);
+      })
+      .catch((err: unknown) => {
+        const e = err as { code?: string; message?: string };
+        if (e.code && e.code !== "auth/no-current-user") {
+          setError(e.message ?? "Google sign-in failed");
+        }
+      })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function afterFirebaseAuth(uid: string, userEmail: string, displayName: string, idToken: string) {
     try {
@@ -37,15 +56,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const idToken = await result.user.getIdToken();
-      await afterFirebaseAuth(result.user.uid, result.user.email ?? "", result.user.displayName ?? "", idToken);
+      await signInWithRedirect(auth, provider);
+      // Browser navigates away — code below does not run
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string };
-      if (e.code !== "auth/popup-closed-by-user") {
-        setError(e.message ?? "Google sign-in failed");
-      }
-    } finally {
+      setError(e.message ?? "Google sign-in failed");
       setLoading(false);
     }
   }
@@ -75,7 +90,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <Image src="/Logo_small.png" alt="DAQS" width={32} height={32} className="rounded-lg" />
+            <Image src="/Logo_small.png" alt="DAQS" width={32} height={32} className="rounded-lg" style={{ width: 32, height: 32 }} />
             <span className="font-semibold text-white">DAQS Learn</span>
           </Link>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
@@ -113,7 +128,10 @@ export default function LoginPage() {
 
           <form onSubmit={handleEmailLogin} className="space-y-3">
             <input
+              id="email"
+              name="email"
               type="email"
+              autoComplete="email"
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -121,7 +139,10 @@ export default function LoginPage() {
               className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-2.5 text-white placeholder-white/30 text-sm focus:outline-none focus:border-sky-500/50 focus:bg-white/8 transition-all"
             />
             <input
+              id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

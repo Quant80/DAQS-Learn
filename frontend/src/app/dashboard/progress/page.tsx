@@ -25,6 +25,12 @@ const trajectoryConfig = {
   stable: { icon: "➡️", label: "Stable", color: "text-sky-400" },
   needs_attention: { icon: "⚠️", label: "Needs Attention", color: "text-amber-400" },
 };
+type TrajectoryKey = keyof typeof trajectoryConfig;
+function getTrajectory(raw: string | undefined | null) {
+  if (!raw) return trajectoryConfig.stable;
+  const normalized = raw.toLowerCase().replace(/[- ]/g, "_") as TrajectoryKey;
+  return trajectoryConfig[normalized] ?? trajectoryConfig.stable;
+}
 
 export default function ProgressPage() {
   const [mounted, setMounted] = useState(false);
@@ -79,7 +85,14 @@ export default function ProgressPage() {
         }),
       });
       const data = await res.json();
-      setReport(data);
+      setReport({
+        summary: data.summary ?? "",
+        strengths: Array.isArray(data.strengths) ? data.strengths : [],
+        weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+        recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
+        nextSteps: data.nextSteps ?? "",
+        predictedTrajectory: data.predictedTrajectory ?? "stable",
+      });
     } catch {
       // fallback handled in API route
     } finally {
@@ -301,9 +314,9 @@ export default function ProgressPage() {
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <span>🤖</span> AI Learning Report
             </h2>
-            <div className={`flex items-center gap-1.5 text-xs font-bold ${trajectoryConfig[report.predictedTrajectory].color}`}>
-              <span>{trajectoryConfig[report.predictedTrajectory].icon}</span>
-              {trajectoryConfig[report.predictedTrajectory].label}
+            <div className={`flex items-center gap-1.5 text-xs font-bold ${getTrajectory(report.predictedTrajectory).color}`}>
+              <span>{getTrajectory(report.predictedTrajectory).icon}</span>
+              {getTrajectory(report.predictedTrajectory).label}
             </div>
           </div>
 

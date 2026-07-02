@@ -7,56 +7,73 @@ import { WebsocketProvider } from "y-websocket";
 
 const WS_URL = process.env.NEXT_PUBLIC_WHITEBOARD_URL ?? "wss://whiteboard.daqstech.com";
 
-export default function TldrawWrapper({ roomId, transparent = false }: { roomId: string; transparent?: boolean }) {
+export default function TldrawWrapper({
+  roomId,
+  transparent = false,
+  onEditorReady,
+}: {
+  roomId: string;
+  transparent?: boolean;
+  onEditorReady?: (editor: Editor) => void;
+}) {
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [syncStatus, setSyncStatus] = useState<"connecting" | "synced" | "offline">("connecting");
+  const [syncStatus, setSyncStatus] = useState<"connecting" | "synced" | "local">("local");
 
   function onMount(e: Editor) {
     e.user.updateUserPreferences({ colorScheme: "dark" });
     setEditor(e);
+    onEditorReady?.(e);
   }
 
   useEffect(() => {
     if (!editor) return;
+    const hasServer = !!process.env.NEXT_PUBLIC_WHITEBOARD_URL;
+    if (!hasServer) return;
 
     const doc = new Y.Doc();
-    let provider: InstanceType<typeof WebsocketProvider>;
+    let provider: InstanceType<typeof WebsocketProvider> | null = null;
     let applying = false;
-    let timer: ReturnType<typeof setTimeout>;
+    let debounce: ReturnType<typeof setTimeout>;
+    let cleanupListen: (() => void) | undefined;
+
+    const giveUpTimer = setTimeout(() => {
+      setSyncStatus("local");
+      try { provider?.destroy(); } catch {}
+      doc.destroy();
+    }, 5000);
 
     try {
-      provider = new WebsocketProvider(WS_URL, `classroom-${roomId}`, doc);
+      setSyncStatus("connecting");
+      provider = new WebsocketProvider(WS_URL, `classroom-${roomId}`, doc, { connect: true });
 
       provider.on("sync", (isSynced: boolean) => {
-        setSyncStatus(isSynced ? "synced" : "connecting");
-        if (isSynced) {
-          const snap = doc.getMap<string>("tldraw").get("snapshot");
-          if (snap) {
-            applying = true;
-            try { editor.loadSnapshot(JSON.parse(snap)); } catch {}
-            applying = false;
-          }
+        if (!isSynced) return;
+        clearTimeout(giveUpTimer);
+        setSyncStatus("synced");
+        const snap = doc.getMap<string>("tldraw").get("snapshot");
+        if (snap) {
+          applying = true;
+          try { editor.loadSnapshot(JSON.parse(snap)); } catch {}
+          applying = false;
         }
       });
 
       provider.on("status", ({ status }: { status: string }) => {
-        if (status === "disconnected") setSyncStatus("offline");
+        if (status === "disconnected") setSyncStatus("local");
       });
 
-      // Push local changes to Yjs (debounced 250 ms)
-      const cleanupListen = editor.store.listen(
+      cleanupListen = editor.store.listen(
         () => {
           if (applying) return;
-          clearTimeout(timer);
-          timer = setTimeout(() => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => {
             const snap = JSON.stringify(editor.getSnapshot());
             doc.transact(() => doc.getMap<string>("tldraw").set("snapshot", snap));
-          }, 250);
+          }, 300);
         },
         { source: "user" }
       );
 
-      // Apply remote changes
       doc.getMap<string>("tldraw").observe((event) => {
         if (event.transaction.local || applying) return;
         const snap = doc.getMap<string>("tldraw").get("snapshot");
@@ -66,28 +83,44 @@ export default function TldrawWrapper({ roomId, transparent = false }: { roomId:
         applying = false;
       });
 
-      return () => {
-        clearTimeout(timer);
-        cleanupListen();
-        provider.destroy();
-        doc.destroy();
-      };
     } catch {
-      setSyncStatus("offline");
+      clearTimeout(giveUpTimer);
+      setSyncStatus("local");
       doc.destroy();
     }
+
+    return () => {
+      clearTimeout(giveUpTimer);
+      clearTimeout(debounce);
+      cleanupListen?.();
+      try { provider?.destroy(); } catch {}
+      doc.destroy();
+    };
   }, [editor, roomId]);
 
   return (
     <div className="absolute inset-0" style={{ background: transparent ? "transparent" : undefined }}>
       {transparent && (
-        <style>{`.tl-background { display: none !important; } .tl-canvas { background: transparent !important; }`}</style>
+        <style>{`
+          .tl-background { display: none !important; }
+          .tl-canvas { background: transparent !important; }
+          .tl-container { pointer-events: auto !important; }
+          .tlui-toolbar, .tlui-panel, .tlui-menu-zone, .tlui-help-menu { pointer-events: auto !important; }
+        `}</style>
       )}
-      {/* Sync status badge */}
-      <div className="absolute top-2 right-2 z-10 pointer-events-none">
+
+      <Tldraw
+        persistenceKey={`daqs-classroom-${roomId}`}
+        autoFocus={false}
+        onMount={onMount}
+      />
+
+      {/* Sync badge — top-right, pointer-events-none so it never blocks drawing */}
+      <div className="absolute top-2 right-2 z-20 pointer-events-none">
         {syncStatus === "connecting" && (
-          <span className="text-[10px] text-white/30 bg-black/50 px-2 py-1 rounded-full">
-            Connecting sync…
+          <span className="text-[10px] text-white/40 bg-black/50 px-2 py-1 rounded-full flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-pulse" />
+            Connecting…
           </span>
         )}
         {syncStatus === "synced" && (
@@ -96,18 +129,12 @@ export default function TldrawWrapper({ roomId, transparent = false }: { roomId:
             Live sync
           </span>
         )}
-        {syncStatus === "offline" && (
-          <span className="text-[10px] text-amber-400/60 bg-black/50 px-2 py-1 rounded-full">
-            Offline — local only
+        {syncStatus === "local" && (
+          <span className="text-[10px] text-white/25 bg-black/40 px-2 py-1 rounded-full">
+            Local
           </span>
         )}
       </div>
-
-      <Tldraw
-        persistenceKey={`daqs-classroom-${roomId}`}
-        autoFocus={false}
-        onMount={onMount}
-      />
     </div>
   );
 }

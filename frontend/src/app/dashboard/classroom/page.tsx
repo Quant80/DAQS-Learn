@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import type { Editor } from "@tldraw/tldraw";
 import {
   LiveKitRoom, VideoConference, useRoomContext,
   useTracks, VideoTrack, RoomAudioRenderer,
@@ -11,6 +12,7 @@ import type { TrackReference, TrackReferenceOrPlaceholder } from "@livekit/compo
 import { useClassroom } from "@/store/classroom";
 import { useAuthStore } from "@/store/auth";
 import type { ClassSession } from "@/store/classroom";
+import { pdfToImages, insertImagesIntoTldraw } from "@/lib/whiteboardUpload";
 
 const Whiteboard = dynamic(() => import("@/components/TldrawWrapper"), {
   ssr: false,
@@ -76,6 +78,106 @@ function DocSync({ isHost, docUrl, onDocUrl }: {
   return null;
 }
 
+// ── Floating PDF panel ─────────────────────────────────────────────────────────
+interface PdfPanelData {
+  id: string;
+  title: string;
+  pages: { dataUrl: string }[];
+  zIndex: number;
+  x: number;
+  y: number;
+}
+
+function FloatingPanel({
+  panel,
+  onClose,
+  onFocus,
+  onMove,
+}: {
+  panel: PdfPanelData;
+  onClose: (id: string) => void;
+  onFocus: (id: string) => void;
+  onMove: (id: string, x: number, y: number) => void;
+}) {
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  function startDrag(e: React.MouseEvent<HTMLDivElement>) {
+    if ((e.target as HTMLElement).closest("button")) return;
+    e.preventDefault();
+    onFocus(panel.id);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: panel.x, origY: panel.y };
+
+    const PANEL_W = 460;
+    const HEADER_H = 36; // header height — panel must stay grabbable at top
+
+    function handleMouseMove(ev: MouseEvent) {
+      if (!dragRef.current) return;
+      const dx = ev.clientX - dragRef.current.startX;
+      const dy = ev.clientY - dragRef.current.startY;
+      const rawX = dragRef.current.origX + dx;
+      const rawY = dragRef.current.origY + dy;
+      // Clamp so at least the header stays inside the viewport
+      const clampedX = Math.max(0, Math.min(window.innerWidth - PANEL_W, rawX));
+      const clampedY = Math.max(0, Math.min(window.innerHeight - HEADER_H, rawY));
+      onMove(panel.id, clampedX, clampedY);
+    }
+    function handleMouseUp() {
+      dragRef.current = null;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    }
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  }
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden shadow-2xl flex flex-col select-none"
+      style={{ position: "fixed", left: panel.x, top: panel.y, zIndex: panel.zIndex, width: 460,
+        border: "1px solid rgba(139,92,246,0.35)", background: "#0d0d18" }}
+      onMouseDown={() => onFocus(panel.id)}
+    >
+      {/* Header / drag handle */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 shrink-0 cursor-grab active:cursor-grabbing"
+        style={{ background: "#1a1a30", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+        onMouseDown={startDrag}
+      >
+        <span className="text-violet-300/70 text-[11px]">📄</span>
+        <span className="flex-1 text-white/60 text-[11px] font-medium truncate">{panel.title}</span>
+        <span className="text-white/25 text-[10px] mr-1">{panel.pages.length} page{panel.pages.length !== 1 ? "s" : ""}</span>
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => onClose(panel.id)}
+          title="Close"
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] transition-all"
+          style={{ background: "rgba(239,68,68,0.2)", color: "rgba(239,68,68,0.8)" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.7)"; (e.currentTarget as HTMLButtonElement).style.color = "white"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.2)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(239,68,68,0.8)"; }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Scrollable PDF pages */}
+      <div
+        className="overflow-y-auto overflow-x-hidden"
+        style={{ maxHeight: "calc(100vh - 130px)", background: "#fff" }}
+      >
+        {panel.pages.map((page, i) => (
+          <img
+            key={i}
+            src={page.dataUrl}
+            alt={`Page ${i + 1}`}
+            draggable={false}
+            style={{ width: "100%", display: "block" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Renders inside LiveKitRoom — detects screen share and activates whiteboard overlay automatically
 function ClassroomVideoArea({ roomId, visible }: { roomId: string; visible: boolean }) {
   const allScreenTracks = useTracks(
@@ -109,26 +211,26 @@ function ClassroomVideoArea({ roomId, visible }: { roomId: string; visible: bool
           <div className="flex-1 min-h-0 relative">
             <VideoTrack
               trackRef={screenTracks[0]}
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
             />
 
-            {/* Whiteboard annotation layer */}
+            {/* Whiteboard annotation layer — pointer-events-auto so tools work */}
             {annotationsOn && (
-              <div className="absolute inset-0 z-10">
-                <Whiteboard roomId={roomId} transparent />
+              <div className="absolute inset-0 z-10 pointer-events-auto">
+                <Whiteboard roomId={`${roomId}-annotation`} transparent />
               </div>
             )}
 
-            {/* Annotation toggle */}
+            {/* Annotation toggle — top-right so it doesn't cover Tldraw's left toolbar */}
             <button
               onClick={() => setAnnotationsOn((v) => !v)}
-              className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 text-[11px] px-3 py-1 rounded-full border transition-all ${
+              className={`absolute top-2 right-3 z-20 text-[11px] px-3 py-1 rounded-full border transition-all ${
                 annotationsOn
                   ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
                   : "bg-black/50 border-white/15 text-white/40 hover:text-white"
               }`}
             >
-              ✏️ {annotationsOn ? "Annotations on — click to hide" : "Annotations off — click to draw"}
+              ✏️ {annotationsOn ? "Annotating — click to hide" : "Click to annotate"}
             </button>
 
             {/* Floating webcam tiles */}
@@ -202,12 +304,116 @@ function LiveRoom({ session, onLeave }: { session: ClassSession; onLeave: () => 
   const [view, setView] = useState<"video" | "whiteboard" | "document">("video");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [docUrl, setDocUrl] = useState("");
+  const docContainerRef = useRef<HTMLDivElement>(null);
+  const [docIsFullscreen, setDocIsFullscreen] = useState(false);
   const [docInputUrl, setDocInputUrl] = useState("");
   const [docUploading, setDocUploading] = useState(false);
   const [docUploadError, setDocUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isHost = user?.email === session.hostEmail;
+  // Whiteboard PDF/image upload
+  const [wbEditor, setWbEditor] = useState<Editor | null>(null);
+  const [wbUploading, setWbUploading] = useState(false);
+  const [wbError, setWbError] = useState("");
+  const wbFileRef = useRef<HTMLInputElement>(null);
+
+  // PDF floating panels
+  const [pdfPanels, setPdfPanels] = useState<PdfPanelData[]>([]);
+  const zCounter = useRef(200);
+  const panelOffset = useRef(0);
+
+  // Sync docIsFullscreen when user exits via Escape key
+  useEffect(() => {
+    const handler = () => setDocIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  function openPdfPanel(title: string, pages: { dataUrl: string }[]) {
+    zCounter.current += 1;
+    const slot = (panelOffset.current++ % 8) * 30;
+    setPdfPanels(prev => [...prev, { id: Math.random().toString(36).slice(2), title, pages, zIndex: zCounter.current, x: 60 + slot, y: 56 + slot }]);
+  }
+
+  function closePdfPanel(id: string) {
+    setPdfPanels(prev => prev.filter(p => p.id !== id));
+  }
+
+  function focusPdfPanel(id: string) {
+    zCounter.current += 1;
+    const z = zCounter.current;
+    setPdfPanels(prev => prev.map(p => p.id === id ? { ...p, zIndex: z } : p));
+  }
+
+  function movePdfPanel(id: string, x: number, y: number) {
+    setPdfPanels(prev => prev.map(p => p.id === id ? { ...p, x, y } : p));
+  }
+
+  // Board tab — inserts PDF/image pages directly into the Tldraw canvas
+  async function handleWbUpload(file: File) {
+    if (!wbEditor) return;
+    setWbUploading(true);
+    setWbError("");
+    try {
+      if (file.type === "application/pdf") {
+        const images = await pdfToImages(file);
+        await insertImagesIntoTldraw(wbEditor, images);
+      } else if (file.type.startsWith("image/")) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+        const { width, height } = await new Promise<{ width: number; height: number }>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ width: img.width, height: img.height });
+          img.src = dataUrl;
+        });
+        await insertImagesIntoTldraw(wbEditor, [{ dataUrl, width, height }]);
+      } else {
+        setWbError("Use a PDF or image file.");
+      }
+    } catch (e: unknown) {
+      setWbError((e as Error).message ?? "Failed to load document");
+    } finally {
+      setWbUploading(false);
+    }
+  }
+
+  // Docs tab — opens PDF/image as a floating panel viewer
+  const [dpUploading, setDpUploading] = useState(false);
+  const [dpError, setDpError] = useState("");
+  const dpFileRef = useRef<HTMLInputElement>(null);
+
+  async function handleDocPanelUpload(file: File) {
+    setDpUploading(true);
+    setDpError("");
+    try {
+      if (file.type === "application/pdf") {
+        const images = await pdfToImages(file);
+        openPdfPanel(file.name, images.map(({ dataUrl }) => ({ dataUrl })));
+      } else if (file.type.startsWith("image/")) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+        openPdfPanel(file.name, [{ dataUrl }]);
+      } else {
+        setDpError("Use a PDF or image file.");
+      }
+    } catch (e: unknown) {
+      setDpError((e as Error).message ?? "Failed to load");
+    } finally {
+      setDpUploading(false);
+    }
+  }
+
+  const isHost =
+    !session.hostEmail ||
+    session.hostEmail.toLowerCase() === (user?.email ?? "").toLowerCase();
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -315,6 +521,41 @@ function LiveRoom({ session, onLeave }: { session: ClassSession; onLeave: () => 
           </button>
         </div>
 
+        {/* Whiteboard PDF/image upload — appears in the toolbar when on Board tab */}
+        {view === "whiteboard" && (
+          <>
+            <input
+              ref={wbFileRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,image/png,image/jpeg,image/gif,image/webp"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleWbUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => wbFileRef.current?.click()}
+              disabled={wbUploading || !wbEditor}
+              title="Load PDF or image onto whiteboard"
+              className="flex items-center gap-1 text-[11px] bg-violet-500/15 hover:bg-violet-500/25 disabled:opacity-40 border border-violet-500/30 text-violet-300 px-2.5 py-1 rounded-md transition-colors shrink-0"
+            >
+              {wbUploading ? (
+                <>
+                  <span className="w-2.5 h-2.5 border border-violet-400/50 border-t-violet-400 rounded-full animate-spin" />
+                  Loading…
+                </>
+              ) : (
+                <>📎 Load PDF</>
+              )}
+            </button>
+            {wbError && (
+              <span className="text-[11px] text-red-400 shrink-0">{wbError}</span>
+            )}
+          </>
+        )}
+
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {/* Fullscreen toggle */}
           <button
@@ -399,118 +640,171 @@ function LiveRoom({ session, onLeave }: { session: ClassSession; onLeave: () => 
             <ClassroomVideoArea roomId={session.roomId} visible={view === "video"} />
           </LiveKitRoom>
 
-          {/* Whiteboard */}
-          {view === "whiteboard" && (
-            <div className="flex-1 min-h-0 relative overflow-hidden">
-              {isHost && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-violet-500/10 border border-violet-500/25 text-violet-300/70 text-[10px] px-3 py-1 rounded-full pointer-events-none">
-                  Students see and can draw on this board in real time
-                </div>
-              )}
-              <Whiteboard roomId={session.roomId} />
-            </div>
-          )}
+          {/* Whiteboard — always mounted so Tldraw never re-initialises on tab switch */}
+          <div
+            className="flex-1 min-h-0 relative"
+            style={{ display: view === "whiteboard" ? "block" : "none" }}
+          >
+            {isHost && view === "whiteboard" && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-violet-500/10 border border-violet-500/25 text-violet-300/70 text-[10px] px-3 py-1 rounded-full pointer-events-none">
+                Students see and can draw on this board in real time
+              </div>
+            )}
+            <Whiteboard roomId={session.roomId} onEditorReady={setWbEditor} />
+          </div>
 
           {/* Document / PDF */}
           {view === "document" && (
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.ppt,.pptx,image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadFile(file);
-                  e.target.value = "";
-                }}
-              />
-
-              {isHost && !docUrl && (
-                <div className="shrink-0 space-y-2 px-3 py-2.5 border-b border-white/10 bg-[#0d0d16]">
-                  {/* Upload row */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={docUploading}
-                      className="flex items-center gap-2 bg-violet-500/15 hover:bg-violet-500/25 disabled:opacity-50 border border-violet-500/30 text-violet-300 text-xs px-3 py-1.5 rounded-lg transition-colors shrink-0"
-                    >
-                      {docUploading ? (
-                        <>
-                          <span className="w-3 h-3 border border-violet-400/50 border-t-violet-400 rounded-full animate-spin" />
-                          Uploading…
-                        </>
-                      ) : (
-                        <>📁 Upload PDF / PPT</>
-                      )}
-                    </button>
-                    <span className="text-white/20 text-xs">or paste a URL</span>
-                    <input
-                      value={docInputUrl}
-                      onChange={(e) => setDocInputUrl(e.target.value)}
-                      placeholder="https://…  (Google Slides embed, PDF link)"
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs placeholder-white/20 focus:outline-none focus:border-sky-500/50"
-                      onKeyDown={(e) => { if (e.key === "Enter" && docInputUrl.trim()) setDocUrl(docInputUrl.trim()); }}
-                    />
-                    <button
-                      onClick={() => docInputUrl.trim() && setDocUrl(docInputUrl.trim())}
-                      disabled={!docInputUrl.trim()}
-                      className="bg-sky-500 hover:bg-sky-400 disabled:opacity-30 text-white text-xs px-3 py-1.5 rounded-lg transition-colors shrink-0"
-                    >
-                      Share →
-                    </button>
-                  </div>
-                  {docUploadError && (
-                    <p className="text-red-400 text-[11px]">{docUploadError}</p>
-                  )}
-                </div>
-              )}
+            <div className="flex-1 min-h-0 flex flex-col" style={{ minWidth: 0 }}>
+              {/* Hidden file inputs — always present while on docs tab */}
+              <input ref={fileInputRef} type="file" accept=".pdf,.ppt,.pptx,image/*" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }} />
+              <input ref={dpFileRef} type="file" accept=".pdf,image/png,image/jpeg,image/gif,image/webp" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocPanelUpload(f); e.target.value = ""; }} />
 
               {docUrl ? (
-                <div className="flex-1 min-h-0 relative">
-                  {isHost && (
-                    <button
-                      onClick={() => { setDocUrl(""); setDocInputUrl(""); setDocUploadError(""); }}
-                      className="absolute top-2 right-2 z-10 text-[11px] text-white/40 hover:text-white bg-black/60 hover:bg-black/80 px-2.5 py-1 rounded-full transition-colors"
-                    >
-                      Change document
-                    </button>
-                  )}
+                /* ── Document loaded: full-coverage view ── */
+                <div
+                  ref={docContainerRef}
+                  className="flex-1 min-h-0 relative bg-black"
+                  style={{ minWidth: 0 }}
+                >
+                  {/* Iframe fills the entire container */}
                   <iframe
                     src={docUrl}
-                    className="w-full h-full border-0"
-                    allow="fullscreen"
                     title="Shared document"
+                    allow="fullscreen"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", display: "block" }}
                   />
-                </div>
-              ) : !isHost ? (
-                <div className="flex-1 flex items-center justify-center text-white/30 text-sm">
-                  Waiting for host to share a document…
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center space-y-3 max-w-sm">
-                    <div className="text-4xl">📄</div>
-                    <p className="text-white/50 text-sm font-medium">Share a document with students</p>
-                    <p className="text-white/25 text-xs leading-relaxed">
-                      Upload a PDF or PowerPoint directly, or paste a public URL.<br />
-                      For Google Slides: File → Share → Publish to web → copy the embed link.
-                    </p>
+
+                  {/* Overlay toolbar — top-right corner */}
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+                    {/* Personal PDF panel button */}
                     <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={docUploading}
-                      className="bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 text-sm px-5 py-2.5 rounded-xl transition-colors"
+                      onClick={() => dpFileRef.current?.click()}
+                      disabled={dpUploading}
+                      title="Open PDF panel"
+                      className="flex items-center gap-1 text-[11px] bg-black/60 hover:bg-black/80 border border-white/15 text-white/60 hover:text-white px-2.5 py-1 rounded-full backdrop-blur-sm transition-colors"
                     >
-                      📁 Upload PDF or PowerPoint
+                      {dpUploading ? "…" : "📎 Panel"}
                     </button>
+
+                    {/* Expand / fullscreen */}
+                    <button
+                      onClick={() => {
+                        const el = docContainerRef.current;
+                        if (!el) return;
+                        if (!document.fullscreenElement) {
+                          el.requestFullscreen().catch(() => {});
+                          setDocIsFullscreen(true);
+                        } else {
+                          document.exitFullscreen().catch(() => {});
+                          setDocIsFullscreen(false);
+                        }
+                      }}
+                      title={docIsFullscreen ? "Exit fullscreen" : "Expand fullscreen"}
+                      className="flex items-center gap-1 text-[11px] bg-black/60 hover:bg-black/80 border border-white/15 text-white/60 hover:text-white px-2.5 py-1 rounded-full backdrop-blur-sm transition-colors"
+                    >
+                      {docIsFullscreen ? (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 1H1v3M8 1h3v3M4 11H1V8M8 11h3V8"/></svg>
+                      ) : (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8"/></svg>
+                      )}
+                      {docIsFullscreen ? "Shrink" : "Expand"}
+                    </button>
+
+                    {/* Change document (host only) */}
+                    {isHost && (
+                      <button
+                        onClick={() => { setDocUrl(""); setDocInputUrl(""); setDocUploadError(""); setDocIsFullscreen(false); }}
+                        className="text-[11px] bg-black/60 hover:bg-red-900/60 border border-white/15 hover:border-red-500/40 text-white/50 hover:text-red-300 px-2.5 py-1 rounded-full backdrop-blur-sm transition-colors"
+                      >↩ Change</button>
+                    )}
                   </div>
                 </div>
+              ) : (
+                /* ── No document: show sections ── */
+                <>
+                  {/* Personal Viewer */}
+                  <div className="shrink-0 px-4 pt-4 pb-3 border-b border-white/10 bg-[#0a0a14] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/60 text-xs font-semibold uppercase tracking-wider">📎 Personal Viewer</span>
+                      {pdfPanels.length > 0 && (
+                        <span className="text-[11px] text-violet-400/60 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full">
+                          {pdfPanels.length} panel{pdfPanels.length !== 1 ? "s" : ""} open
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-white/25 text-[11px] leading-relaxed">
+                      Open any PDF or image locally as a floating panel — drag it anywhere, scroll through pages, stack multiple files. Visible only to you.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => dpFileRef.current?.click()}
+                        disabled={dpUploading}
+                        className="flex items-center gap-1.5 text-xs bg-violet-500/20 hover:bg-violet-500/30 disabled:opacity-40 border border-violet-500/35 text-violet-300 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {dpUploading ? <><span className="w-3 h-3 border border-violet-400/40 border-t-violet-400 rounded-full animate-spin" /> Loading…</> : <>📎 Open PDF panel</>}
+                      </button>
+                      {dpError && <span className="text-[11px] text-red-400">{dpError}</span>}
+                    </div>
+                  </div>
+
+                  {/* Class Document */}
+                  <div className="shrink-0 px-4 pt-3 pb-2 border-b border-white/8 bg-[#0d0d16]">
+                    <span className="text-white/40 text-[11px] font-semibold uppercase tracking-wider">
+                      📡 Class Document {isHost ? "— share with students" : "— from host"}
+                    </span>
+                  </div>
+
+                  {isHost && (
+                    <div className="shrink-0 flex items-center gap-2 px-4 py-2.5 border-b border-white/8 bg-[#0d0d16]">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={docUploading}
+                        className="flex items-center gap-1.5 bg-violet-500/15 hover:bg-violet-500/25 disabled:opacity-50 border border-violet-500/30 text-violet-300 text-xs px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                      >
+                        {docUploading ? <><span className="w-3 h-3 border border-violet-400/50 border-t-violet-400 rounded-full animate-spin" /> Uploading…</> : <>📁 Upload PDF / PPT</>}
+                      </button>
+                      <span className="text-white/20 text-xs">or paste a URL</span>
+                      <input
+                        value={docInputUrl}
+                        onChange={(e) => setDocInputUrl(e.target.value)}
+                        placeholder="https://… (Google Slides embed, PDF link)"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs placeholder-white/20 focus:outline-none focus:border-sky-500/50"
+                        onKeyDown={(e) => { if (e.key === "Enter" && docInputUrl.trim()) setDocUrl(docInputUrl.trim()); }}
+                      />
+                      <button
+                        onClick={() => docInputUrl.trim() && setDocUrl(docInputUrl.trim())}
+                        disabled={!docInputUrl.trim()}
+                        className="bg-sky-500 hover:bg-sky-400 disabled:opacity-30 text-white text-xs px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                      >Share →</button>
+                      {docUploadError && <p className="text-red-400 text-[11px]">{docUploadError}</p>}
+                    </div>
+                  )}
+
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-white/20 text-sm">
+                      {isHost ? "Upload a file or paste a URL above to share with students" : "Waiting for host to share a document…"}
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           )}
         </>
       )}
+
+      {/* Floating PDF panels — position:fixed so they persist across tab switches and escape overflow */}
+      {pdfPanels.map((panel) => (
+        <FloatingPanel
+          key={panel.id}
+          panel={panel}
+          onClose={closePdfPanel}
+          onFocus={focusPdfPanel}
+          onMove={movePdfPanel}
+        />
+      ))}
     </div>
   );
 }
@@ -653,7 +947,9 @@ function SessionCard({ session, onJoin, onStart, onDelete }: {
   onDelete: () => void;
 }) {
   const user = useAuthStore((s) => s.user);
-  const isHost = user?.email === session.hostEmail;
+  const isHost =
+    !session.hostEmail ||
+    session.hostEmail.toLowerCase() === (user?.email ?? "").toLowerCase();
 
   return (
     <div className={`bg-white/[0.03] border rounded-2xl p-5 flex gap-4 items-start ${

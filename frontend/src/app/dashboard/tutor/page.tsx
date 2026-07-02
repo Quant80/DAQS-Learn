@@ -63,7 +63,7 @@ function MathGraph({ spec }: { spec: GraphSpec }) {
     return point;
   });
 
-  // Compute y bounds from actual data so touch-point curves always have space below x-axis
+  // Compute y bounds from actual data
   let autoYMin = Infinity;
   let autoYMax = -Infinity;
   for (const row of data) {
@@ -76,22 +76,22 @@ function MathGraph({ spec }: { spec: GraphSpec }) {
     }
   }
   const yRange = autoYMax - autoYMin || 1;
-  const yPad = Math.max(yRange * 0.15, 0.8);
-  // Always show at least -1 below x-axis so touch-point curves aren't flush with the bottom
-  const computedYMin = Math.min(autoYMin - yPad, -1);
-  const computedYMax = autoYMax + yPad;
+  // Generous padding: 25% of range below (min 2 units) and 15% above
+  // so curves always cut through the x-axis with clear space on both sides
+  const yPadBelow = Math.max(yRange * 0.25, 2);
+  const yPadAbove = Math.max(yRange * 0.15, 1);
+  const computedYMin = autoYMin - yPadBelow;
+  const computedYMax = autoYMax + yPadAbove;
 
-  const domainY: [number | string, number | string] =
-    spec.yMin !== undefined && spec.yMax !== undefined
-      ? [spec.yMin, spec.yMax]
-      : [computedYMin, computedYMax];
+  // Always use computed bounds — spec values from the AI are often too tight
+  const domainY: [number, number] = [computedYMin, computedYMax];
 
   return (
-    <div className="my-4 bg-[#060e1f] border border-white/10 rounded-xl p-4 overflow-hidden">
+    <div className="my-4 bg-[#060e1f] border border-white/10 rounded-xl p-4 overflow-hidden max-w-[420px] mx-auto">
       {spec.title && (
         <p className="text-white/70 text-sm font-semibold mb-3 text-center">{spec.title}</p>
       )}
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" aspect={1.1}>
         <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
           <XAxis
