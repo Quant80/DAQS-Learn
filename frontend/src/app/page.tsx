@@ -90,7 +90,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-[#060d1a] text-white">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 lg:px-12 py-4 border-b border-white/8 bg-[#060d1a]/90 backdrop-blur-md sticky top-0 z-50">
+      <nav className="flex items-center justify-between px-4 lg:px-6 py-4 border-b border-white/8 bg-[#060d1a]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <Image src="/Logo_small.png" alt="DAQS" width={34} height={34} className="rounded-lg" />
           <div>
@@ -113,12 +113,24 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(14,165,233,0.15),transparent)] pointer-events-none" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_70%_60%,rgba(99,102,241,0.08),transparent)] pointer-events-none" />
 
-        <div className="relative max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-sky-500/10 border border-sky-500/20 rounded-full px-4 py-1.5 mb-8">
-            <div className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
-            <span className="text-sky-400 text-xs font-semibold tracking-wider uppercase">Now in development — Phase 1 complete</span>
+        {/* Country badges — top-left of hero, outside nav */}
+        <div className="absolute top-4 left-4 lg:left-6 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://flagcdn.com/20x15/za.png" width={20} height={15} alt="ZA" className="rounded-[2px] shrink-0" />
+            <span className="text-emerald-400 text-xs font-bold">South Africa</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <span className="text-emerald-400/70 text-xs">Live</span>
           </div>
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://flagcdn.com/20x15/zw.png" width={20} height={15} alt="ZW" className="rounded-[2px] shrink-0" />
+            <span className="text-amber-400 text-xs font-bold">Zimbabwe</span>
+            <span className="text-amber-400/60 text-xs">· Launching Soon</span>
+          </div>
+        </div>
 
+        <div className="relative max-w-4xl mx-auto">
           <h1 className="text-5xl md:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6">
             Learn with AI.{" "}
             <br className="hidden md:block" />

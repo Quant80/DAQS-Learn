@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -34,7 +32,9 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
-    env_file: ./backend/.env
+    env_file:
+      - path: ./backend/.env
+        required: false
     ports:
       - "8000:8000"
     depends_on:
@@ -55,6 +55,7 @@ services:
       - "3001:3000"
     depends_on:
       - backend
+      - jupyter
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
       NEXT_PUBLIC_NOTEBOOK_URL: http://localhost:8888
@@ -70,6 +71,9 @@ services:
     ports:
       - "8888:8888"
     volumes:
+      # Course notebooks served directly from Next.js public folder
+      - ./frontend/public/notebooks:/home/jovyan/daqs-notebooks:ro
+      # Persistent workspace for student work
       - notebook_data:/home/jovyan/work
     environment:
       JUPYTER_TOKEN: "daqs2024"
@@ -78,6 +82,7 @@ services:
       - start-notebook.py
       - --ServerApp.token=daqs2024
       - --ServerApp.allow_origin=*
+      - --ServerApp.disable_check_xsrf=true
       - --ServerApp.tornado_settings={"headers":{"Content-Security-Policy":"frame-ancestors *"}}
 
   # ── Phase 6: DAQS Studio ───────────────────────────────────────────────────

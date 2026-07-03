@@ -2,22 +2,234 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ReferenceDot, ResponsiveContainer,
+} from "recharts";
+import { evaluate } from "mathjs";
 import { useAuthStore } from "@/store/auth";
 import { useLearningProfile } from "@/store/learningProfile";
+import { useAIPreferences } from "@/store/aiPreferences";
+import { AI_MODELS, PROVIDER_META, getModelsByProvider } from "@/lib/aiProvider";
+import type { AIProvider } from "@/lib/aiProvider";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
+type GraphSpec = {
+  title?: string;
+  functions: Array<{ expr: string; label?: string; color?: string }>;
+  xMin: number;
+  xMax: number;
+  yMin?: number;
+  yMax?: number;
+  xIntercepts?: Array<{ x: number; y: number; label?: string }>;
+  yIntercept?: { x: number; y: number; label?: string };
+  vertex?: { x: number; y: number; label?: string };
+  axisOfSymmetry?: number;
+};
+
+const PROVIDERS: AIProvider[] = ["claude", "openai", "deepseek", "gemini"];
+
 const STARTERS = [
-  "Explain Python list comprehensions with examples",
+  "Solve x² - 4x + 4 = 0 and plot the graph",
   "Help me understand how neural networks work",
-  "Review my code and suggest improvements",
   "What is the difference between SQL JOIN types?",
   "Explain Big O notation simply",
-  "Help me debug a Python error",
+  "Plot f(x) = sin(x) from -π to π",
+  "Explain Python list comprehensions with examples",
 ];
+
+function MathGraph({ spec }: { spec: GraphSpec }) {
+  const N = 300;
+  const step = (spec.xMax - spec.xMin) / N;
+
+  const data = Array.from({ length: N + 1 }, (_, i) => {
+    const x = Number((spec.xMin + i * step).toFixed(6));
+    const point: Record<string, number | null> = { x };
+    for (const fn of spec.functions) {
+      try {
+        const y = Number(evaluate(fn.expr, { x }));
+        point[fn.expr] = isFinite(y) ? y : null;
+      } catch {
+        point[fn.expr] = null;
+      }
+    }
+    return point;
+  });
+
+  // Compute y bounds from actual data
+  let autoYMin = Infinity;
+  let autoYMax = -Infinity;
+  for (const row of data) {
+    for (const fn of spec.functions) {
+      const v = row[fn.expr];
+      if (v !== null && typeof v === "number" && isFinite(v)) {
+        if (v < autoYMin) autoYMin = v;
+        if (v > autoYMax) autoYMax = v;
+      }
+    }
+  }
+  const yRange = autoYMax - autoYMin || 1;
+  // Generous padding: 25% of range below (min 2 units) and 15% above
+  // so curves always cut through the x-axis with clear space on both sides
+  const yPadBelow = Math.max(yRange * 0.25, 2);
+  const yPadAbove = Math.max(yRange * 0.15, 1);
+  const computedYMin = autoYMin - yPadBelow;
+  const computedYMax = autoYMax + yPadAbove;
+
+  // Always use computed bounds — spec values from the AI are often too tight
+  const domainY: [number, number] = [computedYMin, computedYMax];
+
+  return (
+    <div className="my-4 bg-[#060e1f] border border-white/10 rounded-xl p-4 overflow-hidden max-w-[420px] mx-auto">
+      {spec.title && (
+        <p className="text-white/70 text-sm font-semibold mb-3 text-center">{spec.title}</p>
+      )}
+      <ResponsiveContainer width="100%" aspect={1.1}>
+        <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+          <XAxis
+            dataKey="x"
+            type="number"
+            domain={[spec.xMin, spec.xMax]}
+            stroke="rgba(255,255,255,0.25)"
+            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+            tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(1)}
+          />
+          <YAxis
+            domain={domainY}
+            stroke="rgba(255,255,255,0.25)"
+            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+            tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(1)}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "#0a1628",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 8,
+              color: "white",
+              fontSize: 11,
+            }}
+            formatter={(value) => [typeof value === "number" ? value.toFixed(3) : String(value)]}
+            labelFormatter={(label) => `x = ${Number(label).toFixed(3)}`}
+          />
+
+          {/* Coordinate axes */}
+          <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+          <ReferenceLine x={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+
+          {/* Axis of symmetry — dashed amber line */}
+          {spec.axisOfSymmetry !== undefined && (
+            <ReferenceLine
+              x={spec.axisOfSymmetry}
+              stroke="#f59e0b"
+              strokeDasharray="6 4"
+              strokeWidth={1.5}
+              label={{ value: `x = ${spec.axisOfSymmetry}`, position: "insideTopRight", fill: "#f59e0b", fontSize: 10 }}
+            />
+          )}
+
+          {/* Function curves */}
+          {spec.functions.map((fn) => (
+            <Line
+              key={fn.expr}
+              type="monotone"
+              dataKey={fn.expr}
+              stroke={fn.color ?? "#60a5fa"}
+              strokeWidth={2.5}
+              dot={false}
+              connectNulls={false}
+              name={fn.label ?? fn.expr}
+            />
+          ))}
+
+          {/* x-intercepts — green dots (skip if overlaps with vertex to avoid label collision) */}
+          {spec.xIntercepts?.map((p, i) => {
+            const overlapsVertex = spec.vertex &&
+              Math.abs(p.x - spec.vertex.x) < 0.001 &&
+              Math.abs(p.y - spec.vertex.y) < 0.001;
+            if (overlapsVertex) return null; // vertex dot will show a merged label
+            return (
+              <ReferenceDot
+                key={`xi-${i}`}
+                x={p.x} y={p.y} r={5}
+                fill="#4ade80" stroke="#060e1f" strokeWidth={1.5}
+                label={{ value: p.label ?? `(${p.x}, ${p.y})`, fill: "#4ade80", fontSize: 10, position: "top" }}
+              />
+            );
+          })}
+
+          {/* y-intercept — sky dot (skip if overlaps vertex) */}
+          {spec.yIntercept && !(
+            spec.vertex &&
+            Math.abs(spec.yIntercept.x - spec.vertex.x) < 0.001 &&
+            Math.abs(spec.yIntercept.y - spec.vertex.y) < 0.001
+          ) && (
+            <ReferenceDot
+              x={spec.yIntercept.x} y={spec.yIntercept.y} r={5}
+              fill="#38bdf8" stroke="#060e1f" strokeWidth={1.5}
+              label={{ value: spec.yIntercept.label ?? `(${spec.yIntercept.x}, ${spec.yIntercept.y})`, fill: "#38bdf8", fontSize: 10, position: "right" }}
+            />
+          )}
+
+          {/* Vertex — violet dot. If it coincides with an x-intercept, show merged label. */}
+          {spec.vertex && (() => {
+            const xIntAtVertex = spec.xIntercepts?.find(
+              (p) => Math.abs(p.x - spec.vertex!.x) < 0.001 && Math.abs(p.y - spec.vertex!.y) < 0.001
+            );
+            const mergedLabel = xIntAtVertex
+              ? `Vertex & x-int (${spec.vertex.x}, ${spec.vertex.y})`
+              : (spec.vertex.label ?? `Vertex (${spec.vertex.x}, ${spec.vertex.y})`);
+            return (
+              <ReferenceDot
+                x={spec.vertex.x} y={spec.vertex.y} r={7}
+                fill="#a78bfa" stroke="#060e1f" strokeWidth={2}
+                label={{ value: mergedLabel, fill: "#a78bfa", fontSize: 10, position: "top" }}
+              />
+            );
+          })()}
+        </LineChart>
+      </ResponsiveContainer>
+
+      {/* Legend chips */}
+      <div className="mt-3 flex flex-wrap gap-1.5 justify-center">
+        {spec.functions.map((fn) => (
+          <span key={fn.expr}
+            style={{ borderColor: `${fn.color ?? "#60a5fa"}40`, color: fn.color ?? "#60a5fa", background: `${fn.color ?? "#60a5fa"}15` }}
+            className="text-[11px] border rounded-full px-2.5 py-1 font-mono">
+            {fn.label ?? fn.expr}
+          </span>
+        ))}
+        {spec.xIntercepts?.map((p, i) => (
+          <span key={i} className="text-[11px] bg-green-500/10 text-green-400 border border-green-500/25 rounded-full px-2.5 py-1">
+            x-int {p.label ?? `(${p.x}, ${p.y})`}
+          </span>
+        ))}
+        {spec.yIntercept && (
+          <span className="text-[11px] bg-sky-500/10 text-sky-400 border border-sky-500/25 rounded-full px-2.5 py-1">
+            y-int {spec.yIntercept.label ?? `(${spec.yIntercept.x}, ${spec.yIntercept.y})`}
+          </span>
+        )}
+        {spec.vertex && (
+          <span className="text-[11px] bg-violet-500/10 text-violet-400 border border-violet-500/25 rounded-full px-2.5 py-1">
+            vertex {spec.vertex.label ?? `(${spec.vertex.x}, ${spec.vertex.y})`}
+          </span>
+        )}
+        {spec.axisOfSymmetry !== undefined && (
+          <span className="text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/25 rounded-full px-2.5 py-1">
+            axis of symmetry: x = {spec.axisOfSymmetry} (dashed)
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -35,12 +247,19 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Convert any LaTeX delimiter variant the AI might output into the $...$ form KaTeX expects */
+function normaliseMath(text: string): string {
+  // \( ... \)  →  $ ... $
+  text = text.replace(/\\\(([\s\S]+?)\\\)/g, (_, m) => `$${m}$`);
+  // \[ ... \]  →  $$ ... $$
+  text = text.replace(/\\\[([\s\S]+?)\\\]/g, (_, m) => `$$\n${m}\n$$`);
+  return text;
+}
+
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === "user";
-
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-      {/* Avatar */}
       <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold mt-1 ${
         isUser
           ? "bg-sky-500/20 border border-sky-500/30 text-sky-300"
@@ -48,9 +267,7 @@ function MessageBubble({ msg }: { msg: Message }) {
       }`}>
         {isUser ? "U" : "AI"}
       </div>
-
-      {/* Bubble */}
-      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+      <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
         isUser
           ? "bg-sky-500/15 border border-sky-500/20 text-white rounded-tr-sm"
           : "bg-white/[0.04] border border-white/10 text-white/90 rounded-tl-sm"
@@ -59,18 +276,43 @@ function MessageBubble({ msg }: { msg: Message }) {
           <p className="whitespace-pre-wrap">{msg.content}</p>
         ) : (
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            rehypePlugins={[rehypeKatex as any]}
             components={{
-              code({ node, className, children, ...props }) {
-                const isBlock = className?.includes("language-");
+              code({ className, children }) {
+                const lang = className?.replace("language-", "") ?? "";
                 const codeText = String(children).replace(/\n$/, "");
-                if (isBlock) {
-                  const lang = className?.replace("language-", "") ?? "";
+
+                if (lang === "graph") {
+                  try {
+                    const spec = JSON.parse(codeText) as GraphSpec;
+                    return <MathGraph spec={spec} />;
+                  } catch {
+                    // fall through to regular code block
+                  }
+                }
+
+                if (lang) {
+                  const isPython = lang === "python";
                   return (
                     <div className="my-3 rounded-xl overflow-hidden border border-white/10">
-                      <div className="flex items-center justify-between bg-white/5 px-4 py-1.5 border-b border-white/8">
+                      <div className="flex items-center justify-between bg-white/5 px-4 py-1.5 border-b border-white/[0.08]">
                         <span className="text-[10px] text-white/40 font-mono">{lang}</span>
-                        <CopyButton text={codeText} />
+                        <div className="flex items-center gap-2">
+                          {isPython && (
+                            <button
+                              onClick={() => {
+                                sessionStorage.setItem("daqs_tutor_code", codeText);
+                                window.open("/dashboard/notebook?fromTutor=1", "_blank");
+                              }}
+                              className="text-[10px] font-semibold text-sky-300 hover:text-sky-200 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 rounded px-2.5 py-0.5 transition-all flex items-center gap-1"
+                            >
+                              ▶ Open in Notebook
+                            </button>
+                          )}
+                          <CopyButton text={codeText} />
+                        </div>
                       </div>
                       <pre className="overflow-x-auto p-4 bg-[#0a1628]">
                         <code className="text-xs text-emerald-300 font-mono leading-relaxed">{codeText}</code>
@@ -78,8 +320,9 @@ function MessageBubble({ msg }: { msg: Message }) {
                     </div>
                   );
                 }
+
                 return (
-                  <code className="bg-white/10 text-emerald-300 rounded px-1.5 py-0.5 text-xs font-mono" {...props}>
+                  <code className="bg-white/10 text-emerald-300 rounded px-1.5 py-0.5 text-xs font-mono">
                     {children}
                   </code>
                 );
@@ -89,15 +332,47 @@ function MessageBubble({ msg }: { msg: Message }) {
               ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 mb-3 text-white/80">{children}</ol>,
               li: ({ children }) => <li className="text-white/80">{children}</li>,
               strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
+              em: ({ children }) => <em className="text-white/70 italic">{children}</em>,
               h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4">{children}</h1>,
               h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3">{children}</h2>,
               h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1 mt-3">{children}</h3>,
               blockquote: ({ children }) => (
                 <blockquote className="border-l-2 border-sky-500/40 pl-3 my-2 text-white/60 italic">{children}</blockquote>
               ),
+              table: ({ children }) => (
+                <div className="my-4 overflow-x-auto rounded-xl border border-violet-500/25 shadow-lg shadow-violet-950/30">
+                  <style>{`
+                    .daqs-table tbody tr:nth-child(even) { background: rgba(139,92,246,0.04); }
+                    .daqs-table tbody tr:hover { background: rgba(96,165,250,0.06); }
+                    .daqs-table tbody td:first-child { color: rgba(255,255,255,0.95); font-weight: 500; }
+                    .daqs-table strong { color: #fbbf24; font-weight: 700; }
+                    .daqs-table em { color: #a78bfa; font-style: normal; font-weight: 600; }
+                  `}</style>
+                  <table className="w-full text-sm border-collapse daqs-table">{children}</table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead style={{ background: "linear-gradient(135deg, rgba(109,40,217,0.55) 0%, rgba(37,99,235,0.55) 100%)" }}>
+                  {children}
+                </thead>
+              ),
+              tbody: ({ children }) => <tbody>{children}</tbody>,
+              tr: ({ children }) => (
+                <tr className="border-t border-white/[0.06] transition-colors">{children}</tr>
+              ),
+              th: ({ children }) => (
+                <th className="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap border-r border-white/[0.08] last:border-r-0">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-4 py-3 text-white/75 border-r border-white/[0.04] last:border-r-0">
+                  {children}
+                </td>
+              ),
             }}
           >
-            {msg.content}
+            {normaliseMath(msg.content)}
           </ReactMarkdown>
         )}
       </div>
@@ -122,15 +397,129 @@ function TypingIndicator() {
   );
 }
 
+function ModelPicker() {
+  const { provider, modelId, setModel } = useAIPreferences();
+  const [open, setOpen] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<AIProvider>(provider);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const currentModel = AI_MODELS.find((m) => m.id === modelId);
+  const meta = PROVIDER_META[provider];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-2 text-xs font-semibold border rounded-xl px-3 py-2 transition-all ${meta.bgColor} ${meta.borderColor} ${meta.color}`}
+      >
+        <span>{meta.icon}</span>
+        <span className="hidden sm:inline">{currentModel?.name ?? "Select model"}</span>
+        <span className="sm:hidden">{meta.label}</span>
+        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-[#0a1628] border border-white/12 rounded-2xl shadow-2xl z-50 overflow-hidden">
+          <div className="flex border-b border-white/8">
+            {PROVIDERS.map((p) => {
+              const pm = PROVIDER_META[p];
+              return (
+                <button
+                  key={p}
+                  onClick={() => setActiveProvider(p)}
+                  className={`flex-1 py-2.5 text-xs font-semibold transition-all ${
+                    activeProvider === p
+                      ? `${pm.bgColor} ${pm.color} border-b-2 ${pm.borderColor}`
+                      : "text-white/35 hover:text-white/60"
+                  }`}
+                >
+                  <span className="block text-sm mb-0.5">{pm.icon}</span>
+                  {pm.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="p-2 space-y-1 max-h-72 overflow-y-auto">
+            {getModelsByProvider(activeProvider).map((m) => {
+              const selected = m.id === modelId && m.provider === provider;
+              const pm = PROVIDER_META[m.provider];
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => { setModel(m.provider, m.id); setOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-start gap-3 ${
+                    selected ? `${pm.bgColor} border ${pm.borderColor}` : "hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={`text-xs font-semibold ${selected ? pm.color : "text-white/80"}`}>{m.name}</span>
+                      {m.badge && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${pm.bgColor} ${pm.color} border ${pm.borderColor}`}>
+                          {m.badge}
+                        </span>
+                      )}
+                      {selected && <span className="ml-auto text-xs text-emerald-400">✓</span>}
+                    </div>
+                    <p className="text-white/35 text-[11px] leading-relaxed">{m.description}</p>
+                    <span className="text-[10px] text-white/25">{m.contextWindow} context</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="px-3 py-2 border-t border-white/8 bg-white/[0.02]">
+            <p className="text-[10px] text-white/30">
+              API keys configured server-side. Missing a provider? Add its key to <code className="text-white/45">.env.local</code>
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const SESSION_KEY = "daqs_tutor_messages";
+
 export default function TutorPage() {
   const user = useAuthStore((s) => s.user);
   const recordTutorMessage = useLearningProfile((s) => s.recordTutorMessage);
+  const { provider, modelId } = useAIPreferences();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
+  const [restored, setRestored] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Restore conversation from session on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) setMessages(JSON.parse(saved));
+    } catch {}
+    setRestored(true);
+  }, []);
+
+  // Persist conversation whenever it changes
+  useEffect(() => {
+    if (!restored) return;
+    if (messages.length > 0) sessionStorage.setItem(SESSION_KEY, JSON.stringify(messages));
+    else sessionStorage.removeItem(SESSION_KEY);
+  }, [messages, restored]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -155,6 +544,8 @@ export default function TutorPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          provider,
+          modelId,
         }),
       });
 
@@ -200,23 +591,27 @@ export default function TutorPage() {
     e.target.style.height = Math.min(e.target.scrollHeight, 160) + "px";
   }
 
+  const currentMeta = PROVIDER_META[provider];
   const showEmpty = messages.length === 0;
 
   return (
     <div className="flex flex-col h-screen max-h-screen">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-lg">
+      <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-lg shrink-0">
           🤖
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-white font-bold text-base leading-tight">DAQS AI Tutor</h1>
-          <p className="text-white/40 text-xs">Powered by Claude · Ask me anything</p>
+          <p className={`text-xs ${currentMeta.color} opacity-70`}>
+            {currentMeta.icon} {currentMeta.label} · {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId}
+          </p>
         </div>
+        <ModelPicker />
         {messages.length > 0 && (
           <button
-            onClick={() => setMessages([])}
-            className="ml-auto text-xs text-white/30 hover:text-white/60 border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-all"
+            onClick={() => { setMessages([]); sessionStorage.removeItem(SESSION_KEY); }}
+            className="text-xs text-white/30 hover:text-white/60 border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-all shrink-0"
           >
             New chat
           </button>
@@ -231,11 +626,14 @@ export default function TutorPage() {
               <div className="w-16 h-16 rounded-2xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center text-3xl mx-auto mb-4">
                 🤖
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Hi {user?.full_name?.split(" ")[0]}, I'm your AI Tutor</h2>
+              <h2 className="text-xl font-bold text-white mb-2">Hi {user?.full_name?.split(" ")[0]}, I&apos;m your AI Tutor</h2>
               <p className="text-white/45 text-sm max-w-md">
-                I can help you with programming, data science, maths, science, and more.
-                Ask me anything — I'm here to help you learn and grow.
+                I can render maths with LaTeX, draw interactive graphs, and present tables — ask me anything.
               </p>
+              <div className={`inline-flex items-center gap-1.5 mt-3 text-xs ${currentMeta.color} ${currentMeta.bgColor} border ${currentMeta.borderColor} rounded-full px-3 py-1`}>
+                <span>{currentMeta.icon}</span>
+                Powered by {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId}
+              </div>
             </div>
 
             <div className="w-full max-w-xl">
@@ -262,8 +660,9 @@ export default function TutorPage() {
               <TypingIndicator />
             )}
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-3">
-                {error}
+              <div className="bg-[#1a0a0a] border border-red-500/40 rounded-xl px-4 py-3 space-y-1">
+                <div className="text-red-400 text-sm font-semibold">⚠️ Error</div>
+                <div className="text-red-300 text-xs leading-relaxed">{error}</div>
               </div>
             )}
           </>
@@ -274,7 +673,7 @@ export default function TutorPage() {
       {/* Input */}
       <div className="shrink-0 px-4 md:px-8 py-4 border-t border-white/8 bg-[#060d1a]">
         <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3 items-end bg-white/[0.04] border border-white/12 hover:border-white/20 focus-within:border-sky-500/40 rounded-2xl px-4 py-3 transition-all">
+          <div className={`flex gap-3 items-end bg-white/[0.04] border hover:border-white/20 focus-within:border-sky-500/40 rounded-2xl px-4 py-3 transition-all ${currentMeta.borderColor} border`}>
             <textarea
               ref={textareaRef}
               value={input}
@@ -295,8 +694,8 @@ export default function TutorPage() {
               </svg>
             </button>
           </div>
-          <p className="text-center text-white/20 text-[10px] mt-2">
-            Powered by Claude · For learning and education only
+          <p className={`text-center text-[10px] mt-2 ${currentMeta.color} opacity-50`}>
+            {currentMeta.icon} {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId} · For learning and education only
           </p>
         </div>
       </div>
