@@ -492,6 +492,59 @@ function ModelPicker() {
 }
 
 const SESSION_KEY = "daqs_tutor_messages";
+const ASSESSMENT_KEY = "daqs_tutor_assessment";
+
+interface AssessmentQuestion {
+  number: number;
+  question: string;
+  type: string;
+  difficulty: string;
+  userAnswer: string;
+  correctAnswer: string;
+  earned: number;
+  max: number;
+  explanation: string;
+  concepts: string[];
+  feedback: string | null;
+}
+
+interface AssessmentContext {
+  title: string;
+  subject: string;
+  difficulty: string;
+  percentage: number;
+  totalScore: number;
+  maxScore: number;
+  questions: AssessmentQuestion[];
+}
+
+function buildAssessmentPrompt(ctx: AssessmentContext): string {
+  const lines: string[] = [
+    `I just completed the "${ctx.title}" assessment on ${ctx.subject} (difficulty: ${ctx.difficulty}) and scored ${ctx.percentage}% (${ctx.totalScore}/${ctx.maxScore} points).`,
+    "",
+    `Please walk through each question with me one by one. For each question explain: what the correct answer is and why, where I went wrong if I did, and the key concept being tested.`,
+    "",
+    `Here are all ${ctx.questions.length} questions:`,
+    "",
+  ];
+
+  for (const q of ctx.questions) {
+    const fullMark = q.earned === q.max;
+    lines.push(`**Question ${q.number} (${q.type.replace("_", " ")}, ${q.difficulty}):** ${q.question}`);
+    lines.push(`My answer: ${q.userAnswer}`);
+    if (fullMark) {
+      lines.push(`Result: ✓ Correct (${q.earned}/${q.max} pts)`);
+    } else {
+      lines.push(`Result: ✗ ${q.earned}/${q.max} pts — Correct answer: ${q.correctAnswer}`);
+    }
+    if (q.feedback) lines.push(`AI Feedback received: ${q.feedback}`);
+    lines.push(`Key concepts: ${q.concepts.join(", ")}`);
+    lines.push("");
+  }
+
+  lines.push(`Please start with Question 1 and work through all ${ctx.questions.length} questions systematically.`);
+  return lines.join("\n");
+}
 
 export default function TutorPage() {
   const user = useAuthStore((s) => s.user);
@@ -520,6 +573,20 @@ export default function TutorPage() {
     if (messages.length > 0) sessionStorage.setItem(SESSION_KEY, JSON.stringify(messages));
     else sessionStorage.removeItem(SESSION_KEY);
   }, [messages, restored]);
+
+  // Auto-send assessment context when navigated from results page
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      const raw = sessionStorage.getItem(ASSESSMENT_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(ASSESSMENT_KEY);
+      const ctx = JSON.parse(raw) as AssessmentContext;
+      const prompt = buildAssessmentPrompt(ctx);
+      sendMessage(prompt);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

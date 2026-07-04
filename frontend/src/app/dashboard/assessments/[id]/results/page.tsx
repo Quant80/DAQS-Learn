@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { getTemplate, getRecommendations, difficultyColors } from "@/data/assessmentTemplates";
 import { useSessionStore } from "@/store/assessmentSession";
 import { getQuestionsById } from "@/data/questionBank";
@@ -29,6 +29,7 @@ function ScoreRing({ percentage }: { percentage: number }) {
 
 export default function ResultsPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const session = useSessionStore((s) => s.getSession(id));
   const template = getTemplate(id);
   const [openSolutions, setOpenSolutions] = useState<Set<string>>(new Set());
@@ -70,6 +71,46 @@ export default function ResultsPage() {
       setOpenSolutions(new Set(questionObjects.map((q) => q.id)));
     }
     setAllSolutionsOpen((p) => !p);
+  }
+
+  function handleAskTutor() {
+    if (!template) return;
+    const ctx = {
+      title: template.title,
+      subject: template.subject,
+      difficulty: template.difficulty,
+      percentage,
+      totalScore,
+      maxScore,
+      questions: questionObjects.map((q, i) => {
+        const ans = answers.find((a) => a.questionId === q.id);
+        const earned = ans?.score ?? 0;
+        const userAnswerDisplay =
+          q.type === "mcq"
+            ? (q.options?.[parseInt(ans?.answer ?? "")] ?? "(no answer)")
+            : (ans?.answer || "(no answer)");
+        const correctAnswerDisplay =
+          q.type === "mcq"
+            ? (q.options?.[q.correct ?? 0] ?? "")
+            : q.solution.answer;
+        return {
+          number: i + 1,
+          question: q.question,
+          type: q.type,
+          difficulty: q.difficulty,
+          userAnswer: userAnswerDisplay,
+          correctAnswer: correctAnswerDisplay,
+          earned,
+          max: q.points,
+          explanation: q.solution.explanation,
+          concepts: q.solution.concepts,
+          feedback: ans?.feedback ?? null,
+        };
+      }),
+    };
+    sessionStorage.removeItem("daqs_tutor_messages");
+    sessionStorage.setItem("daqs_tutor_assessment", JSON.stringify(ctx));
+    router.push("/dashboard/tutor");
   }
 
   return (
@@ -289,10 +330,11 @@ export default function ResultsPage() {
           className="flex-1 min-w-[140px] text-center bg-sky-500 hover:bg-sky-400 text-white py-3 rounded-xl text-sm font-bold transition-all">
           All Assessments
         </Link>
-        <Link href="/dashboard/tutor"
+        <button
+          onClick={handleAskTutor}
           className="flex-1 min-w-[140px] text-center bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 py-3 rounded-xl text-sm font-semibold transition-all">
           Ask AI Tutor
-        </Link>
+        </button>
       </div>
     </div>
   );
