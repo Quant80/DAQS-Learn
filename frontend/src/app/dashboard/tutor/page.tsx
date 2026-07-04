@@ -853,7 +853,7 @@ export default function TutorPage() {
   const showEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-screen max-h-screen">
+    <div className="flex flex-col h-screen max-h-screen overflow-hidden">
       {/* Header — sticky so it stays visible while messages scroll */}
       <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0 sticky top-0 z-20">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
@@ -924,7 +924,7 @@ export default function TutorPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-6 space-y-5">
         {showEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-8">
             <div>
