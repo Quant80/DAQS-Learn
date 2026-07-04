@@ -8,6 +8,12 @@ import { useCourseProgress } from "@/store/courseProgress";
 import { useCertificates } from "@/store/certificates";
 import { useAuthStore } from "@/store/auth";
 
+const NOTEBOOK_URL = process.env.NEXT_PUBLIC_NOTEBOOK_URL ?? "http://localhost:8888";
+
+function notebookHref(file: string) {
+  return `${NOTEBOOK_URL}/lab/tree/daqs-notebooks/${file}`;
+}
+
 const lessonTypeIcon: Record<string, string> = {
   video:    "🎬",
   reading:  "📖",
@@ -110,31 +116,58 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
           </div>
         </div>
 
-        <div className="bg-white/[0.02] border border-white/8 rounded-xl p-5">
-          <h4 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-3">Exercise Instructions</h4>
-          <p className="text-white/60 text-sm leading-relaxed">
-            This hands-on exercise lets you practice {lesson.title.toLowerCase()}.
-            Apply what you have learned in this module by completing the tasks below.
-          </p>
-          <div className="mt-4 space-y-2">
-            {["Read the problem statement carefully", "Plan your approach before coding", "Write clean, well-structured code", "Test your solution with different inputs", "Compare with the provided solution"].map((step, i) => (
-              <div key={i} className="flex items-center gap-2.5 text-sm text-white/55">
-                <span className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-[10px] flex items-center justify-center font-bold shrink-0">
-                  {i + 1}
-                </span>
-                {step}
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Notebook launch card */}
+        {lesson.notebookFile && (
+          <a
+            href={notebookHref(lesson.notebookFile)}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-4 bg-emerald-500/10 hover:bg-emerald-500/18 border border-emerald-500/25 rounded-xl px-5 py-4 transition-all group"
+          >
+            <div className="text-3xl shrink-0">🧮</div>
+            <div className="flex-1">
+              <div className="text-emerald-300 font-semibold text-sm">Open in Jupyter Notebook</div>
+              <div className="text-emerald-300/45 text-xs">Complete this exercise interactively in {lesson.notebookFile}</div>
+            </div>
+            <span className="text-emerald-400/50 group-hover:text-emerald-400 transition-colors text-lg shrink-0">↗</span>
+          </a>
+        )}
 
-        <div className="bg-[#0a1628] border border-white/10 rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/8 bg-white/[0.02]">
-            <span className="text-[10px] text-white/30 font-mono">Python Exercise</span>
-            <span className="text-[10px] text-emerald-400/60">Write your solution here</span>
+        {/* Inline content if exercise has instructions */}
+        {lesson.content && (
+          <div className="bg-white/[0.02] border border-white/8 rounded-xl p-5">
+            <MarkdownRenderer content={lesson.content} />
           </div>
-          <div className="p-4">
-            <pre className="text-emerald-300 text-xs font-mono leading-relaxed">
+        )}
+
+        {!lesson.content && (
+          <div className="bg-white/[0.02] border border-white/8 rounded-xl p-5">
+            <h4 className="text-white/70 text-xs font-bold uppercase tracking-wider mb-3">Exercise Instructions</h4>
+            <p className="text-white/60 text-sm leading-relaxed">
+              This hands-on exercise lets you practice {lesson.title.toLowerCase()}.
+              Apply what you have learned in this module by completing the tasks below.
+            </p>
+            <div className="mt-4 space-y-2">
+              {["Read the problem statement carefully", "Plan your approach before coding", "Write clean, well-structured code", "Test your solution with different inputs", "Compare with the provided solution"].map((step, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-sm text-white/55">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-[10px] flex items-center justify-center font-bold shrink-0">
+                    {i + 1}
+                  </span>
+                  {step}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!lesson.notebookFile && (
+          <div className="bg-[#0a1628] border border-white/10 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/8 bg-white/[0.02]">
+              <span className="text-[10px] text-white/30 font-mono">Python Exercise</span>
+              <span className="text-[10px] text-emerald-400/60">Write your solution here</span>
+            </div>
+            <div className="p-4">
+              <pre className="text-emerald-300 text-xs font-mono leading-relaxed">
 {`# ${lesson.title}
 # Complete the exercise below
 
@@ -146,9 +179,10 @@ def solution():
 if __name__ == "__main__":
     result = solution()
     print(result)`}
-            </pre>
+              </pre>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-4 text-xs text-violet-300/80">
           🤖 Stuck? Ask the <Link href="/dashboard/tutor" className="text-violet-400 hover:text-violet-300 font-semibold">AI Tutor</Link> for a hint — without spoiling the solution.
@@ -359,6 +393,25 @@ function LearnPageInner() {
               </div>
               <h1 className="text-xl font-bold text-white">{current.lesson.title}</h1>
             </div>
+
+            {/* Open in Notebook banner */}
+            {current.lesson.notebookFile && (
+              <a
+                href={notebookHref(current.lesson.notebookFile)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-4 bg-amber-500/8 hover:bg-amber-500/15 border border-amber-500/25 rounded-2xl px-5 py-4 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-2xl shrink-0">
+                  🧮
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-amber-300 font-semibold text-sm">Open in Jupyter Notebook</div>
+                  <div className="text-amber-300/50 text-xs truncate">{current.lesson.notebookFile}</div>
+                </div>
+                <span className="text-amber-400/60 group-hover:text-amber-400 transition-colors text-sm shrink-0">↗</span>
+              </a>
+            )}
 
             <LessonContent lesson={current.lesson} />
           </div>
