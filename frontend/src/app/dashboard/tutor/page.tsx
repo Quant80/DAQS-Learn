@@ -11,8 +11,9 @@ import {
 } from "recharts";
 import { evaluate } from "mathjs";
 import { useAuthStore } from "@/store/auth";
-import { useLearningProfile } from "@/store/learningProfile";
+import { useLearningProfile, detectSubjectFromMessage } from "@/store/learningProfile";
 import { useAIPreferences } from "@/store/aiPreferences";
+import { useTutorNotes } from "@/store/tutorNotes";
 import { AI_MODELS, PROVIDER_META, getModelsByProvider } from "@/lib/aiProvider";
 import type { AIProvider } from "@/lib/aiProvider";
 
@@ -509,6 +510,7 @@ interface AssessmentQuestion {
 }
 
 interface AssessmentContext {
+  assessmentId?: string;
   title: string;
   subject: string;
   difficulty: string;
@@ -550,13 +552,19 @@ export default function TutorPage() {
   const user = useAuthStore((s) => s.user);
   const recordTutorMessage = useLearningProfile((s) => s.recordTutorMessage);
   const { provider, modelId } = useAIPreferences();
+  const { upsertNote } = useTutorNotes();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState("");
   const [restored, setRestored] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const assessmentMetaRef = useRef<AssessmentContext | null>(null);
+  const assessmentNoteIdRef = useRef<string | null>(null);
+  const generalNoteIdRef = useRef<string | null>(null);
+  const prevStreamingRef = useRef(false);
 
   // Restore conversation from session on mount
   useEffect(() => {
@@ -582,15 +590,58 @@ export default function TutorPage() {
       if (!raw) return;
       sessionStorage.removeItem(ASSESSMENT_KEY);
       const ctx = JSON.parse(raw) as AssessmentContext;
+      assessmentMetaRef.current = ctx;
+      assessmentNoteIdRef.current = `assessment-${ctx.assessmentId ?? ctx.title.replace(/\s+/g, "-")}-${Date.now()}`;
       const prompt = buildAssessmentPrompt(ctx);
       sendMessage(prompt);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restored]);
 
+  // Auto-save note whenever an assessment-mode AI response finishes streaming
+  useEffect(() => {
+    const wasStreaming = prevStreamingRef.current;
+    prevStreamingRef.current = streaming;
+    if (wasStreaming && !streaming && assessmentMetaRef.current && messages.length >= 2) {
+      const meta = assessmentMetaRef.current;
+      upsertNote({
+        id: assessmentNoteIdRef.current!,
+        title: `${meta.title} — AI Review`,
+        source: "assessment",
+        sourceId: meta.assessmentId ?? meta.title,
+        subject: meta.subject,
+        moduleLabel: `${meta.subject} · ${meta.title}`,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        percentage: meta.percentage,
+        pinned: false,
+      });
+    }
+  }, [streaming, messages, upsertNote]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
+
+  function saveGeneralNote() {
+    if (!messages.length) return;
+    if (!generalNoteIdRef.current) {
+      generalNoteIdRef.current = `general-${Date.now()}`;
+    }
+    const firstUser = messages.find((m) => m.role === "user")?.content ?? "Session";
+    const title = firstUser.length > 60 ? firstUser.slice(0, 60) + "…" : firstUser;
+    upsertNote({
+      id: generalNoteIdRef.current,
+      title,
+      source: "general",
+      sourceId: generalNoteIdRef.current,
+      subject: detectSubjectFromMessage(firstUser),
+      moduleLabel: "General Tutor Session",
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      pinned: false,
+    });
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 2500);
+  }
 
   async function sendMessage(content: string) {
     if (!content.trim() || streaming) return;
@@ -675,9 +726,32 @@ export default function TutorPage() {
           </p>
         </div>
         <ModelPicker />
+        {messages.length > 0 && !assessmentMetaRef.current && (
+          <button
+            onClick={saveGeneralNote}
+            className={`text-xs border rounded-lg px-3 py-1.5 transition-all shrink-0 ${
+              noteSaved
+                ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                : "text-violet-400 border-violet-500/25 hover:border-violet-500/40 hover:bg-violet-500/10"
+            }`}
+          >
+            {noteSaved ? "✓ Saved" : "📝 Save Note"}
+          </button>
+        )}
+        {assessmentMetaRef.current && messages.length >= 2 && (
+          <span className="text-[10px] text-emerald-400/70 border border-emerald-500/20 rounded-lg px-2.5 py-1.5 shrink-0 whitespace-nowrap">
+            ✓ Auto-saving
+          </span>
+        )}
         {messages.length > 0 && (
           <button
-            onClick={() => { setMessages([]); sessionStorage.removeItem(SESSION_KEY); }}
+            onClick={() => {
+              assessmentMetaRef.current = null;
+              assessmentNoteIdRef.current = null;
+              generalNoteIdRef.current = null;
+              setMessages([]);
+              sessionStorage.removeItem(SESSION_KEY);
+            }}
             className="text-xs text-white/30 hover:text-white/60 border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-all shrink-0"
           >
             New chat

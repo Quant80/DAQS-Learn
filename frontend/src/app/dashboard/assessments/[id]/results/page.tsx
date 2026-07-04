@@ -76,6 +76,7 @@ export default function ResultsPage() {
   function handleAskTutor() {
     if (!template) return;
     const ctx = {
+      assessmentId: id,
       title: template.title,
       subject: template.subject,
       difficulty: template.difficulty,
