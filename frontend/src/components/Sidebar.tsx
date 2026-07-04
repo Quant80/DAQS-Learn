@@ -148,7 +148,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-[#070f20] border-r border-white/8 min-h-screen sticky top-0">
+      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-[#070f20] border-r border-white/8 h-full overflow-y-auto">
         <SidebarContent />
       </aside>
 

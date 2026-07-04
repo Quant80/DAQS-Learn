@@ -15,14 +15,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isAuthenticated, router]);
 
   return (
-    <div className="flex min-h-screen bg-[#060d1a]">
+    // h-screen overflow-hidden: locks the dashboard to exactly the viewport height.
+    // Nothing can overflow to the browser page level — each page manages its own scroll.
+    <div className="flex h-screen overflow-hidden bg-[#060d1a]">
       <Sidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/8 bg-[#070f20] sticky top-0 z-40">
+        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/8 bg-[#070f20] shrink-0 z-40">
           <div className="flex items-center gap-3">
-            {/* Hamburger */}
             <button
               onClick={() => setMobileNavOpen(true)}
               className="text-white/60 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors"
@@ -50,7 +51,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 min-h-0">{children}</main>
+        {/* overflow-y-auto makes main the scroll container for regular pages (notes, dashboard, etc.).
+            Pages that manage their own internal scroll (tutor, notes expanded) use h-full overflow-hidden. */}
+        <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
       </div>
     </div>
   );

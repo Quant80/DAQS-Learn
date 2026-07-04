@@ -853,9 +853,9 @@ export default function TutorPage() {
   const showEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-screen max-h-screen overflow-hidden">
-      {/* Header — sticky so it stays visible while messages scroll */}
-      <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0 sticky top-0 z-20">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header — shrink-0 keeps it fixed at top; page-level scroll is disabled by layout */}
+      <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
           currentQIdx >= 0
             ? "bg-sky-500/20 border border-sky-500/30"

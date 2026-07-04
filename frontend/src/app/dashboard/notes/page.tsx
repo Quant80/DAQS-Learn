@@ -289,9 +289,9 @@ function ExpandedNoteView({ note, onClose }: { note: TutorNote; onClose: () => v
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Identical structure to tutor/page.tsx: flex flex-col h-screen max-h-screen
+  // h-full fills the locked main container — same pattern as tutor/page.tsx
   return (
-    <div className="flex flex-col h-screen max-h-screen w-full">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {/* Header — matches AI Tutor header structure */}
       <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
         <button
