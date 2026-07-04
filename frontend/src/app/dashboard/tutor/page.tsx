@@ -621,13 +621,21 @@ function buildSingleQuestionPrompt(
 
   lines.push(
     "",
-    `Please explain this question completely and step-by-step. Be thorough — this becomes my study note. Include:`,
-    `• What this question tests and why it matters`,
-    `• The correct answer with full reasoning`,
-    fullMark ? `• Why this is correct and what to remember` : `• Exactly why my answer was wrong`,
-    `• Key concept and how to avoid this mistake`,
+    `Please provide a complete, thorough worked example for this question. This explanation is saved as the student's study note, so do NOT skip or summarise — be exhaustive.`,
     ``,
-    `End your response with a horizontal rule (---) so I know you are done.`
+    `Use this exact structure:`,
+    `1. **Title**: "Worked Example: Question ${index + 1} — [descriptive concept name]"`,
+    `2. **Introduction** — one short paragraph setting the scene`,
+    `3. **Step 1: What this question tests and why it matters** — explain the concept in depth`,
+    `4. **Step 2: The correct answer with full reasoning** — show every step, include annotated code blocks`,
+    fullMark
+      ? `5. **Step 3: Why this is correct — deep dive** — explain the mechanism thoroughly`
+      : `5. **Step 3: Why the given answer was wrong** — diagnose the mistake precisely`,
+    `6. **Step 4: Common mistakes and how to avoid them**`,
+    `7. **Summary table** — always include a markdown table (| ASPECT | EXPLANATION |) summarising key points`,
+    `8. **Try It Yourself** — include a runnable code block the student can copy into their notebook`,
+    ``,
+    `Use markdown formatting: bold headings, bullet lists, fenced code blocks with language tag, and tables. Be detailed.`
   );
 
   return lines.join("\n");
