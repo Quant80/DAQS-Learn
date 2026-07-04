@@ -854,8 +854,8 @@ export default function TutorPage() {
 
   return (
     <div className="flex flex-col h-screen max-h-screen">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
+      {/* Header — sticky so it stays visible while messages scroll */}
+      <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0 sticky top-0 z-20">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
           currentQIdx >= 0
             ? "bg-sky-500/20 border border-sky-500/30"
