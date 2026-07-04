@@ -90,8 +90,8 @@ function NoteMessageBubble({ msg }: { msg: NoteMessage }) {
       <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold mt-1 bg-violet-500/20 border border-violet-500/30 text-violet-300">
         AI
       </div>
-      {/* max-w-[85%] matches AI Tutor exactly — prevents table overflow */}
-      <div className="max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed bg-white/[0.04] border border-white/10 text-white/90">
+      {/* flex-1 min-w-0: fills full available width so tables and content span edge-to-edge */}
+      <div className="flex-1 min-w-0 rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed bg-white/[0.04] border border-white/10 text-white/90">
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -291,7 +291,7 @@ function ExpandedNoteView({ note, onClose }: { note: TutorNote; onClose: () => v
 
   // Identical structure to tutor/page.tsx: flex flex-col h-screen max-h-screen
   return (
-    <div className="flex flex-col h-screen max-h-screen">
+    <div className="flex flex-col h-screen max-h-screen w-full">
       {/* Header — matches AI Tutor header structure */}
       <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
         <button
