@@ -108,6 +108,42 @@ function NoteCard({ note, expanded, onToggle, onPin, onDelete }: {
         <div className="border-t border-white/8 px-4 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
           {note.messages.map((msg, i) => {
             const isUser = msg.role === "user";
+
+            // Question card rendering
+            if (msg.type === "question_prompt" && msg.questionMeta) {
+              const q = msg.questionMeta;
+              const scoreBadge = q.fullMark
+                ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                : q.earned > 0
+                ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                : "text-red-400 bg-red-500/10 border-red-500/20";
+              return (
+                <div key={i} className="border border-sky-500/20 bg-sky-500/5 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold text-sky-400/70 uppercase tracking-wider">
+                      Question {q.number} of {q.total}
+                    </span>
+                    <span className={`text-[9px] font-bold border rounded-full px-2 py-0.5 ${scoreBadge}`}>
+                      {q.earned}/{q.max} pts
+                    </span>
+                  </div>
+                  <p className="text-white/85 text-xs font-medium leading-relaxed">{q.question}</p>
+                  <div className="text-[10px] space-y-1">
+                    <div className="flex gap-2">
+                      <span className="text-white/30 w-16 shrink-0">My answer:</span>
+                      <span className={`font-mono ${q.fullMark ? "text-emerald-300" : "text-red-300/80"}`}>{q.userAnswer}</span>
+                    </div>
+                    {!q.fullMark && (
+                      <div className="flex gap-2">
+                        <span className="text-white/30 w-16 shrink-0">Correct:</span>
+                        <span className="font-mono text-emerald-300">{q.correctAnswer}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={i} className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
                 <div className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold mt-1 ${

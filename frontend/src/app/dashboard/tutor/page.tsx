@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -17,9 +18,24 @@ import { useTutorNotes } from "@/store/tutorNotes";
 import { AI_MODELS, PROVIDER_META, getModelsByProvider } from "@/lib/aiProvider";
 import type { AIProvider } from "@/lib/aiProvider";
 
+interface QuestionCardMeta {
+  number: number;
+  total: number;
+  question: string;
+  userAnswer: string;
+  correctAnswer: string;
+  earned: number;
+  max: number;
+  qType: string;
+  difficulty: string;
+  fullMark: boolean;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
+  type?: "question_prompt";
+  questionMeta?: QuestionCardMeta;
 }
 
 type GraphSpec = {
@@ -257,8 +273,58 @@ function normaliseMath(text: string): string {
   return text;
 }
 
+function QuestionCard({ meta }: { meta: QuestionCardMeta }) {
+  const scoreBadge = meta.fullMark
+    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/25"
+    : meta.earned > 0
+    ? "text-amber-400 bg-amber-500/10 border-amber-500/25"
+    : "text-red-400 bg-red-500/10 border-red-500/25";
+
+  return (
+    <div className="border border-sky-500/20 bg-sky-500/5 rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-sky-400/70 uppercase tracking-wider">
+            Question {meta.number} of {meta.total}
+          </span>
+          <span className="text-[9px] text-white/25 border border-white/10 rounded px-1.5 py-0.5 capitalize">
+            {meta.qType.replace("_", " ")}
+          </span>
+          <span className="text-[9px] text-white/25 border border-white/10 rounded px-1.5 py-0.5">
+            {meta.difficulty}
+          </span>
+        </div>
+        <span className={`text-xs font-bold border rounded-full px-2.5 py-0.5 shrink-0 ${scoreBadge}`}>
+          {meta.earned}/{meta.max} pts
+        </span>
+      </div>
+      <p className="text-white/90 text-sm font-medium leading-relaxed">{meta.question}</p>
+      <div className="space-y-1.5">
+        <div className="flex items-start gap-2">
+          <span className="text-white/35 text-xs shrink-0 mt-0.5 w-20">My answer:</span>
+          <span className={`text-xs font-mono leading-relaxed ${meta.fullMark ? "text-emerald-300" : "text-red-300/90"}`}>
+            {meta.userAnswer}
+          </span>
+          <span className="ml-auto shrink-0 text-sm">{meta.fullMark ? "✓" : "✗"}</span>
+        </div>
+        {!meta.fullMark && (
+          <div className="flex items-start gap-2">
+            <span className="text-white/35 text-xs shrink-0 mt-0.5 w-20">Correct:</span>
+            <span className="text-emerald-300 text-xs font-mono leading-relaxed">{meta.correctAnswer}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === "user";
+
+  if (msg.type === "question_prompt" && msg.questionMeta) {
+    return <QuestionCard meta={msg.questionMeta} />;
+  }
+
   return (
     <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold mt-1 ${
@@ -520,32 +586,70 @@ interface AssessmentContext {
   questions: AssessmentQuestion[];
 }
 
-function buildAssessmentPrompt(ctx: AssessmentContext): string {
-  const lines: string[] = [
-    `I just completed the "${ctx.title}" assessment on ${ctx.subject} (difficulty: ${ctx.difficulty}) and scored ${ctx.percentage}% (${ctx.totalScore}/${ctx.maxScore} points).`,
-    "",
-    `Please walk through each question with me one by one. For each question explain: what the correct answer is and why, where I went wrong if I did, and the key concept being tested.`,
-    "",
-    `Here are all ${ctx.questions.length} questions:`,
-    "",
-  ];
+function buildSingleQuestionPrompt(
+  q: AssessmentQuestion,
+  index: number,
+  total: number,
+  ctx: AssessmentContext
+): string {
+  const fullMark = q.earned === q.max;
+  const lines: string[] = [];
 
-  for (const q of ctx.questions) {
-    const fullMark = q.earned === q.max;
-    lines.push(`**Question ${q.number} (${q.type.replace("_", " ")}, ${q.difficulty}):** ${q.question}`);
-    lines.push(`My answer: ${q.userAnswer}`);
-    if (fullMark) {
-      lines.push(`Result: ✓ Correct (${q.earned}/${q.max} pts)`);
-    } else {
-      lines.push(`Result: ✗ ${q.earned}/${q.max} pts — Correct answer: ${q.correctAnswer}`);
-    }
-    if (q.feedback) lines.push(`AI Feedback received: ${q.feedback}`);
-    lines.push(`Key concepts: ${q.concepts.join(", ")}`);
-    lines.push("");
+  if (index === 0) {
+    lines.push(
+      `I just completed the "${ctx.title}" assessment on ${ctx.subject} and scored ${ctx.percentage}% (${ctx.totalScore}/${ctx.maxScore} pts). We will go through all ${total} questions one at a time.`,
+      ""
+    );
   }
 
-  lines.push(`Please start with Question 1 and work through all ${ctx.questions.length} questions systematically.`);
+  lines.push(
+    `─── Question ${index + 1} of ${total} | ${q.type.replace("_", " ")} | ${q.difficulty} ───`,
+    "",
+    `**${q.question}**`,
+    "",
+    `My answer: ${q.userAnswer}`
+  );
+
+  if (fullMark) {
+    lines.push(`Result: ✓ Correct (${q.earned}/${q.max} pts)`);
+  } else {
+    lines.push(`Result: ✗ ${q.earned}/${q.max} pts`);
+    lines.push(`Correct answer: ${q.correctAnswer}`);
+  }
+
+  if (q.feedback) lines.push(``, `Prior AI feedback: ${q.feedback}`);
+
+  lines.push(
+    "",
+    `Please explain this question completely and step-by-step. Be thorough — this becomes my study note. Include:`,
+    `• What this question tests and why it matters`,
+    `• The correct answer with full reasoning`,
+    fullMark ? `• Why this is correct and what to remember` : `• Exactly why my answer was wrong`,
+    `• Key concept and how to avoid this mistake`,
+    ``,
+    `End your response with a horizontal rule (---) so I know you are done.`
+  );
+
   return lines.join("\n");
+}
+
+function buildQuestionCardMeta(
+  q: AssessmentQuestion,
+  index: number,
+  total: number
+): QuestionCardMeta {
+  return {
+    number: index + 1,
+    total,
+    question: q.question,
+    userAnswer: q.userAnswer,
+    correctAnswer: q.correctAnswer,
+    earned: q.earned,
+    max: q.max,
+    qType: q.type,
+    difficulty: q.difficulty,
+    fullMark: q.earned === q.max,
+  };
 }
 
 export default function TutorPage() {
@@ -559,9 +663,13 @@ export default function TutorPage() {
   const [error, setError] = useState("");
   const [restored, setRestored] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  // Assessment mode state
+  const [currentQIdx, setCurrentQIdx] = useState(-1);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const assessmentMetaRef = useRef<AssessmentContext | null>(null);
+  const assessmentQuestionsRef = useRef<AssessmentQuestion[]>([]);
+  const currentQIdxRef = useRef(-1);
   const assessmentNoteIdRef = useRef<string | null>(null);
   const generalNoteIdRef = useRef<string | null>(null);
   const prevStreamingRef = useRef(false);
@@ -591,9 +699,15 @@ export default function TutorPage() {
       sessionStorage.removeItem(ASSESSMENT_KEY);
       const ctx = JSON.parse(raw) as AssessmentContext;
       assessmentMetaRef.current = ctx;
+      assessmentQuestionsRef.current = ctx.questions;
       assessmentNoteIdRef.current = `assessment-${ctx.assessmentId ?? ctx.title.replace(/\s+/g, "-")}-${Date.now()}`;
-      const prompt = buildAssessmentPrompt(ctx);
-      sendMessage(prompt);
+      currentQIdxRef.current = 0;
+      setCurrentQIdx(0);
+      const q = ctx.questions[0];
+      sendMessage(
+        buildSingleQuestionPrompt(q, 0, ctx.questions.length, ctx),
+        buildQuestionCardMeta(q, 0, ctx.questions.length)
+      );
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restored]);
@@ -622,6 +736,20 @@ export default function TutorPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
+  function handleNextQuestion() {
+    const nextIdx = currentQIdxRef.current + 1;
+    const questions = assessmentQuestionsRef.current;
+    const meta = assessmentMetaRef.current;
+    if (!meta || nextIdx >= questions.length) return;
+    currentQIdxRef.current = nextIdx;
+    setCurrentQIdx(nextIdx);
+    const q = questions[nextIdx];
+    sendMessage(
+      buildSingleQuestionPrompt(q, nextIdx, questions.length, meta),
+      buildQuestionCardMeta(q, nextIdx, questions.length)
+    );
+  }
+
   function saveGeneralNote() {
     if (!messages.length) return;
     if (!generalNoteIdRef.current) {
@@ -643,11 +771,15 @@ export default function TutorPage() {
     setTimeout(() => setNoteSaved(false), 2500);
   }
 
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, questionMeta?: QuestionCardMeta) {
     if (!content.trim() || streaming) return;
     setError("");
 
-    const userMsg: Message = { role: "user", content: content.trim() };
+    const userMsg: Message = {
+      role: "user",
+      content: content.trim(),
+      ...(questionMeta ? { type: "question_prompt" as const, questionMeta } : {}),
+    };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     recordTutorMessage(content.trim());
@@ -716,17 +848,43 @@ export default function TutorPage() {
     <div className="flex flex-col h-screen max-h-screen">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-white/8 bg-[#060d1a] shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-lg shrink-0">
-          🤖
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+          currentQIdx >= 0
+            ? "bg-sky-500/20 border border-sky-500/30"
+            : "bg-violet-500/20 border border-violet-500/30"
+        }`}>
+          {currentQIdx >= 0 ? "📝" : "🤖"}
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-white font-bold text-base leading-tight">DAQS AI Tutor</h1>
-          <p className={`text-xs ${currentMeta.color} opacity-70`}>
-            {currentMeta.icon} {currentMeta.label} · {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId}
-          </p>
+          {currentQIdx >= 0 && assessmentMetaRef.current ? (
+            <>
+              <h1 className="text-white font-bold text-sm leading-tight truncate">
+                {assessmentMetaRef.current.title}
+              </h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-sky-400/80">
+                  Q {currentQIdx + 1} / {assessmentQuestionsRef.current.length}
+                </span>
+                <div className="flex-1 max-w-[120px] h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-sky-500 rounded-full transition-all duration-500"
+                    style={{ width: `${((currentQIdx + 1) / assessmentQuestionsRef.current.length) * 100}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-emerald-400/70">✓ Auto-saving</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="text-white font-bold text-base leading-tight">DAQS AI Tutor</h1>
+              <p className={`text-xs ${currentMeta.color} opacity-70`}>
+                {currentMeta.icon} {currentMeta.label} · {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId}
+              </p>
+            </>
+          )}
         </div>
-        <ModelPicker />
-        {messages.length > 0 && !assessmentMetaRef.current && (
+        {currentQIdx < 0 && <ModelPicker />}
+        {messages.length > 0 && currentQIdx < 0 && (
           <button
             onClick={saveGeneralNote}
             className={`text-xs border rounded-lg px-3 py-1.5 transition-all shrink-0 ${
@@ -738,17 +896,15 @@ export default function TutorPage() {
             {noteSaved ? "✓ Saved" : "📝 Save Note"}
           </button>
         )}
-        {assessmentMetaRef.current && messages.length >= 2 && (
-          <span className="text-[10px] text-emerald-400/70 border border-emerald-500/20 rounded-lg px-2.5 py-1.5 shrink-0 whitespace-nowrap">
-            ✓ Auto-saving
-          </span>
-        )}
         {messages.length > 0 && (
           <button
             onClick={() => {
               assessmentMetaRef.current = null;
+              assessmentQuestionsRef.current = [];
               assessmentNoteIdRef.current = null;
               generalNoteIdRef.current = null;
+              currentQIdxRef.current = -1;
+              setCurrentQIdx(-1);
               setMessages([]);
               sessionStorage.removeItem(SESSION_KEY);
             }}
@@ -806,6 +962,35 @@ export default function TutorPage() {
                 <div className="text-red-300 text-xs leading-relaxed">{error}</div>
               </div>
             )}
+
+            {/* Assessment mode: Next Question / Done card */}
+            {!streaming && currentQIdx >= 0 && messages.length >= 2 && (
+              <div className="flex justify-center pt-2 pb-1">
+                {currentQIdx < assessmentQuestionsRef.current.length - 1 ? (
+                  <button
+                    onClick={handleNextQuestion}
+                    className="flex items-center gap-3 bg-sky-500 hover:bg-sky-400 text-white font-bold text-sm px-8 py-3.5 rounded-2xl transition-all shadow-lg shadow-sky-500/25 active:scale-95"
+                  >
+                    <span>Next: Question {currentQIdx + 2} of {assessmentQuestionsRef.current.length}</span>
+                    <span className="text-lg">→</span>
+                  </button>
+                ) : (
+                  <div className="flex flex-col items-center gap-4 bg-emerald-500/8 border border-emerald-500/20 rounded-2xl px-8 py-6 text-center">
+                    <span className="text-3xl">🎉</span>
+                    <div>
+                      <p className="text-emerald-400 font-bold text-sm">All {assessmentQuestionsRef.current.length} questions reviewed!</p>
+                      <p className="text-white/40 text-xs mt-1">Your full AI review has been saved to My Notes.</p>
+                    </div>
+                    <Link
+                      href="/dashboard/notes"
+                      className="flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
+                    >
+                      📝 View in My Notes →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
         <div ref={bottomRef} />
@@ -820,7 +1005,11 @@ export default function TutorPage() {
               value={input}
               onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
-              placeholder="Ask your tutor anything… (Enter to send, Shift+Enter for new line)"
+              placeholder={
+                currentQIdx >= 0
+                  ? "Ask a follow-up about this question… (Enter to send)"
+                  : "Ask your tutor anything… (Enter to send, Shift+Enter for new line)"
+              }
               disabled={streaming}
               rows={1}
               className="flex-1 bg-transparent text-white placeholder-white/25 text-sm resize-none focus:outline-none leading-relaxed min-h-[24px] max-h-40"

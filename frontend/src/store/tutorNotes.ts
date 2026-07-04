@@ -4,6 +4,19 @@ import { persist } from "zustand/middleware";
 export interface NoteMessage {
   role: "user" | "assistant";
   content: string;
+  type?: "question_prompt";
+  questionMeta?: {
+    number: number;
+    total: number;
+    question: string;
+    userAnswer: string;
+    correctAnswer: string;
+    earned: number;
+    max: number;
+    qType: string;
+    difficulty: string;
+    fullMark: boolean;
+  };
 }
 
 export type NoteSource = "assessment" | "general";
