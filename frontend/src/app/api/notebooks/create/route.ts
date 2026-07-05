@@ -21,7 +21,7 @@ function buildNotebook(code: string) {
         metadata: {},
         execution_count: null,
         outputs: [],
-        source: code.split("\n"),
+        source: code,
       },
     ],
   };
