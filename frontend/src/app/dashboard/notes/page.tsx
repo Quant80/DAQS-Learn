@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { evaluate } from "mathjs";
 import { useTutorNotes, TutorNote, NoteMessage, NoteSource } from "@/store/tutorNotes";
+import { openCodeInNotebook } from "@/lib/notebook";
 
 type GraphSpec = {
   title?: string;
@@ -314,10 +315,7 @@ function NoteMessageBubble({ msg }: { msg: NoteMessage }) {
                       <div className="flex items-center gap-2">
                         {isPython && (
                           <button
-                            onClick={() => {
-                              sessionStorage.setItem("daqs_tutor_code", codeText);
-                              window.open("/dashboard/notebook?fromTutor=1", "_blank");
-                            }}
+                            onClick={() => openCodeInNotebook(codeText)}
                             className="text-[10px] font-semibold text-sky-300 hover:text-sky-200 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 rounded px-2.5 py-0.5 transition-all flex items-center gap-1"
                           >
                             ▶ Open in Notebook
