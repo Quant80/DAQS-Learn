@@ -733,7 +733,12 @@ export default function TutorPage() {
         sourceId: meta.assessmentId ?? meta.title,
         subject: meta.subject,
         moduleLabel: `${meta.subject} · ${meta.title}`,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          ...(m.type ? { type: m.type } : {}),
+          ...(m.questionMeta ? { questionMeta: m.questionMeta } : {}),
+        })),
         percentage: meta.percentage,
         pinned: false,
       });
@@ -772,7 +777,12 @@ export default function TutorPage() {
       sourceId: generalNoteIdRef.current,
       subject: detectSubjectFromMessage(firstUser),
       moduleLabel: "General Tutor Session",
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        ...(m.type ? { type: m.type } : {}),
+        ...(m.questionMeta ? { questionMeta: m.questionMeta } : {}),
+      })),
       pinned: false,
     });
     setNoteSaved(true);

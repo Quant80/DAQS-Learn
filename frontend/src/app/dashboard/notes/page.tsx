@@ -6,7 +6,201 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ReferenceDot, ResponsiveContainer,
+} from "recharts";
+import { evaluate } from "mathjs";
 import { useTutorNotes, TutorNote, NoteMessage, NoteSource } from "@/store/tutorNotes";
+
+type GraphSpec = {
+  title?: string;
+  functions: Array<{ expr: string; label?: string; color?: string }>;
+  xMin: number;
+  xMax: number;
+  yMin?: number;
+  yMax?: number;
+  xIntercepts?: Array<{ x: number; y: number; label?: string }>;
+  yIntercept?: { x: number; y: number; label?: string };
+  vertex?: { x: number; y: number; label?: string };
+  axisOfSymmetry?: number;
+};
+
+// ── Math graph renderer — identical to tutor/page.tsx MathGraph ───────────────
+
+function MathGraph({ spec }: { spec: GraphSpec }) {
+  const N = 300;
+  const step = (spec.xMax - spec.xMin) / N;
+
+  const data = Array.from({ length: N + 1 }, (_, i) => {
+    const x = Number((spec.xMin + i * step).toFixed(6));
+    const point: Record<string, number | null> = { x };
+    for (const fn of spec.functions) {
+      try {
+        const y = Number(evaluate(fn.expr, { x }));
+        point[fn.expr] = isFinite(y) ? y : null;
+      } catch {
+        point[fn.expr] = null;
+      }
+    }
+    return point;
+  });
+
+  let autoYMin = Infinity;
+  let autoYMax = -Infinity;
+  for (const row of data) {
+    for (const fn of spec.functions) {
+      const v = row[fn.expr];
+      if (v !== null && typeof v === "number" && isFinite(v)) {
+        if (v < autoYMin) autoYMin = v;
+        if (v > autoYMax) autoYMax = v;
+      }
+    }
+  }
+  const yRange = autoYMax - autoYMin || 1;
+  const yPadBelow = Math.max(yRange * 0.25, 2);
+  const yPadAbove = Math.max(yRange * 0.15, 1);
+  const computedYMin = autoYMin - yPadBelow;
+  const computedYMax = autoYMax + yPadAbove;
+  const domainY: [number, number] = [computedYMin, computedYMax];
+
+  return (
+    <div className="my-4 bg-[#060e1f] border border-white/10 rounded-xl p-4 overflow-hidden max-w-[420px] mx-auto">
+      {spec.title && (
+        <p className="text-white/70 text-sm font-semibold mb-3 text-center">{spec.title}</p>
+      )}
+      <ResponsiveContainer width="100%" aspect={1.1}>
+        <LineChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+          <XAxis
+            dataKey="x"
+            type="number"
+            domain={[spec.xMin, spec.xMax]}
+            stroke="rgba(255,255,255,0.25)"
+            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+            tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(1)}
+          />
+          <YAxis
+            domain={domainY}
+            stroke="rgba(255,255,255,0.25)"
+            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+            tickFormatter={(v: number) => v % 1 === 0 ? String(v) : v.toFixed(1)}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "#0a1628",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 8,
+              color: "white",
+              fontSize: 11,
+            }}
+            formatter={(value) => [typeof value === "number" ? value.toFixed(3) : String(value)]}
+            labelFormatter={(label) => `x = ${Number(label).toFixed(3)}`}
+          />
+
+          <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+          <ReferenceLine x={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+
+          {spec.axisOfSymmetry !== undefined && (
+            <ReferenceLine
+              x={spec.axisOfSymmetry}
+              stroke="#f59e0b"
+              strokeDasharray="6 4"
+              strokeWidth={1.5}
+              label={{ value: `x = ${spec.axisOfSymmetry}`, position: "insideTopRight", fill: "#f59e0b", fontSize: 10 }}
+            />
+          )}
+
+          {spec.functions.map((fn) => (
+            <Line
+              key={fn.expr}
+              type="monotone"
+              dataKey={fn.expr}
+              stroke={fn.color ?? "#60a5fa"}
+              strokeWidth={2.5}
+              dot={false}
+              connectNulls={false}
+              name={fn.label ?? fn.expr}
+            />
+          ))}
+
+          {spec.xIntercepts?.map((p, i) => {
+            const overlapsVertex = spec.vertex &&
+              Math.abs(p.x - spec.vertex.x) < 0.001 &&
+              Math.abs(p.y - spec.vertex.y) < 0.001;
+            if (overlapsVertex) return null;
+            return (
+              <ReferenceDot
+                key={`xi-${i}`}
+                x={p.x} y={p.y} r={5}
+                fill="#4ade80" stroke="#060e1f" strokeWidth={1.5}
+                label={{ value: p.label ?? `(${p.x}, ${p.y})`, fill: "#4ade80", fontSize: 10, position: "top" }}
+              />
+            );
+          })}
+
+          {spec.yIntercept && !(
+            spec.vertex &&
+            Math.abs(spec.yIntercept.x - spec.vertex.x) < 0.001 &&
+            Math.abs(spec.yIntercept.y - spec.vertex.y) < 0.001
+          ) && (
+            <ReferenceDot
+              x={spec.yIntercept.x} y={spec.yIntercept.y} r={5}
+              fill="#38bdf8" stroke="#060e1f" strokeWidth={1.5}
+              label={{ value: spec.yIntercept.label ?? `(${spec.yIntercept.x}, ${spec.yIntercept.y})`, fill: "#38bdf8", fontSize: 10, position: "right" }}
+            />
+          )}
+
+          {spec.vertex && (() => {
+            const xIntAtVertex = spec.xIntercepts?.find(
+              (p) => Math.abs(p.x - spec.vertex!.x) < 0.001 && Math.abs(p.y - spec.vertex!.y) < 0.001
+            );
+            const mergedLabel = xIntAtVertex
+              ? `Vertex & x-int (${spec.vertex.x}, ${spec.vertex.y})`
+              : (spec.vertex.label ?? `Vertex (${spec.vertex.x}, ${spec.vertex.y})`);
+            return (
+              <ReferenceDot
+                x={spec.vertex.x} y={spec.vertex.y} r={7}
+                fill="#a78bfa" stroke="#060e1f" strokeWidth={2}
+                label={{ value: mergedLabel, fill: "#a78bfa", fontSize: 10, position: "top" }}
+              />
+            );
+          })()}
+        </LineChart>
+      </ResponsiveContainer>
+
+      <div className="mt-3 flex flex-wrap gap-1.5 justify-center">
+        {spec.functions.map((fn) => (
+          <span key={fn.expr}
+            style={{ borderColor: `${fn.color ?? "#60a5fa"}40`, color: fn.color ?? "#60a5fa", background: `${fn.color ?? "#60a5fa"}15` }}
+            className="text-[11px] border rounded-full px-2.5 py-1 font-mono">
+            {fn.label ?? fn.expr}
+          </span>
+        ))}
+        {spec.xIntercepts?.map((p, i) => (
+          <span key={i} className="text-[11px] bg-green-500/10 text-green-400 border border-green-500/25 rounded-full px-2.5 py-1">
+            x-int {p.label ?? `(${p.x}, ${p.y})`}
+          </span>
+        ))}
+        {spec.yIntercept && (
+          <span className="text-[11px] bg-sky-500/10 text-sky-400 border border-sky-500/25 rounded-full px-2.5 py-1">
+            y-int {spec.yIntercept.label ?? `(${spec.yIntercept.x}, ${spec.yIntercept.y})`}
+          </span>
+        )}
+        {spec.vertex && (
+          <span className="text-[11px] bg-violet-500/10 text-violet-400 border border-violet-500/25 rounded-full px-2.5 py-1">
+            vertex {spec.vertex.label ?? `(${spec.vertex.x}, ${spec.vertex.y})`}
+          </span>
+        )}
+        {spec.axisOfSymmetry !== undefined && (
+          <span className="text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/25 rounded-full px-2.5 py-1">
+            axis of symmetry: x = {spec.axisOfSymmetry} (dashed)
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type FilterTab = "all" | NoteSource;
 
@@ -100,6 +294,16 @@ function NoteMessageBubble({ msg }: { msg: NoteMessage }) {
             code({ className, children }) {
               const lang = className?.replace("language-", "") ?? "";
               const codeText = String(children).replace(/\n$/, "");
+
+              if (lang === "graph") {
+                try {
+                  const spec = JSON.parse(codeText) as GraphSpec;
+                  return <MathGraph spec={spec} />;
+                } catch {
+                  // fall through to regular code block
+                }
+              }
+
               const isPython = lang === "python";
 
               if (lang) {
@@ -227,11 +431,23 @@ function CompactNoteMessage({ msg }: { msg: NoteMessage }) {
       </div>
       <div className="flex-1 min-w-0 rounded-2xl rounded-tl-sm px-3 py-2.5 text-xs leading-relaxed bg-white/[0.03] border border-white/8 text-white/80">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rehypePlugins={[rehypeKatex as any]}
           components={{
             code({ className, children }) {
               const lang = className?.replace("language-", "") ?? "";
               const codeText = String(children).replace(/\n$/, "");
+
+              if (lang === "graph") {
+                try {
+                  const spec = JSON.parse(codeText) as GraphSpec;
+                  return <MathGraph spec={spec} />;
+                } catch {
+                  // fall through to regular code block
+                }
+              }
+
               if (lang) {
                 return (
                   <div className="my-2 rounded-lg overflow-hidden border border-white/10">
@@ -268,7 +484,7 @@ function CompactNoteMessage({ msg }: { msg: NoteMessage }) {
             td: ({ children }) => <td className="px-2 py-1.5 text-white/70">{children}</td>,
           }}
         >
-          {msg.content}
+          {normaliseMath(msg.content)}
         </ReactMarkdown>
       </div>
     </div>
