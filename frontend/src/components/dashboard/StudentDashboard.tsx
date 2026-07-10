@@ -1,5 +1,9 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useCourseProgress } from "@/store/courseProgress";
+import { useSessionStore } from "@/store/assessmentSession";
+import { courses } from "@/data/courses";
 
 const modules = [
   { icon: "🧮", label: "Notebook", desc: "Jupyter cloud notebooks", href: "/dashboard/notebook", color: "sky" },
@@ -19,17 +23,85 @@ const colorRing: Record<string, string> = {
   rose:    "hover:border-rose-500/40 hover:bg-rose-500/5",
 };
 
-const activityItems = [
-  { text: "Account created successfully", time: "Just now", icon: "✅" },
-  { text: "Welcome to DAQS Learn!", time: "Just now", icon: "🎉" },
-];
-
 interface Props {
   user: { full_name: string; email: string; role: string };
 }
 
 export default function StudentDashboard({ user }: Props) {
   const firstName = user.full_name.split(" ")[0];
+  const { progress } = useCourseProgress();
+  const sessions = useSessionStore((s) => s.sessions);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const enrolledCount = mounted ? Object.keys(progress).length : 0;
+
+  const minutesLearned = mounted ? (() => {
+    let total = 0;
+    for (const [courseId, cp] of Object.entries(progress)) {
+      const course = courses.find((c) => c.id === courseId);
+      if (!course) continue;
+      for (const mod of course.modules) {
+        for (const lesson of mod.lessons) {
+          if (cp.completedLessons.includes(lesson.id)) {
+            total += lesson.duration;
+          }
+        }
+      }
+    }
+    return total;
+  })() : 0;
+
+  const hoursDisplay = minutesLearned === 0
+    ? "0h"
+    : minutesLearned < 60
+      ? `${minutesLearned}m`
+      : `${(minutesLearned / 60).toFixed(1)}h`;
+
+  const assessmentsDone = mounted
+    ? Object.values(sessions).filter((s) => s.completedAt).length
+    : 0;
+
+  const recentActivity: { text: string; time: string; icon: string }[] = [];
+  if (mounted) {
+    const completedSessions = Object.values(sessions)
+      .filter((s) => s.completedAt)
+      .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""))
+      .slice(0, 2);
+    for (const s of completedSessions) {
+      recentActivity.push({
+        text: `Assessment completed — ${s.percentage}%`,
+        time: new Date(s.completedAt!).toLocaleDateString(),
+        icon: s.percentage >= 80 ? "🏆" : s.percentage >= 50 ? "✅" : "📋",
+      });
+    }
+    const enrolledCourses = Object.values(progress)
+      .sort((a, b) => b.enrolledAt.localeCompare(a.enrolledAt))
+      .slice(0, 2 - recentActivity.length);
+    for (const cp of enrolledCourses) {
+      const course = courses.find((c) => c.id === cp.courseId);
+      if (course) {
+        recentActivity.push({
+          text: `Enrolled in ${course.title}`,
+          time: new Date(cp.enrolledAt).toLocaleDateString(),
+          icon: "📚",
+        });
+      }
+    }
+  }
+  if (recentActivity.length === 0) {
+    recentActivity.push(
+      { text: "Account created successfully", time: "Just now", icon: "✅" },
+      { text: "Welcome to DAQS Learn!", time: "Just now", icon: "🎉" }
+    );
+  }
+
+  const stats = [
+    { label: "Courses Enrolled",  value: enrolledCount.toString(),    icon: "📚", note: enrolledCount > 0 ? "Keep going!" : "Start exploring" },
+    { label: "Hours Learned",     value: hoursDisplay,                icon: "🕐", note: minutesLearned > 0 ? "Great progress" : "Keep going" },
+    { label: "Assessments Done",  value: assessmentsDone.toString(),  icon: "📋", note: assessmentsDone > 0 ? "Well done!" : "All clear" },
+    { label: "AI Sessions",       value: "0",                         icon: "🤖", note: "Ask Claude" },
+  ];
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl">
@@ -38,20 +110,15 @@ export default function StudentDashboard({ user }: Props) {
         <h1 className="text-2xl font-bold text-white">
           Welcome back, {firstName} 👋
         </h1>
-        <p className="text-white/40 mt-1 text-sm">Here's your learning overview</p>
+        <p className="text-white/40 mt-1 text-sm">Here&apos;s your learning overview</p>
       </div>
 
       {/* Stats column */}
       <div className="flex flex-col gap-2 mb-8">
-        {[
-          { label: "Courses Enrolled", value: "0", icon: "📚", note: "Start exploring" },
-          { label: "Hours Learned", value: "0h", icon: "⏱", note: "Keep going" },
-          { label: "Assignments Due", value: "0", icon: "📋", note: "All clear" },
-          { label: "AI Sessions", value: "0", icon: "🤖", note: "Ask Claude" },
-        ].map((s) => (
+        {stats.map((s) => (
           <div key={s.label} className="bg-white/[0.03] border border-white/8 rounded-xl px-4 py-3 flex items-center gap-3">
             <span className="text-xl w-7 shrink-0">{s.icon}</span>
-            <span className="text-xl font-bold text-white w-10 shrink-0">{s.value}</span>
+            <span className="text-xl font-bold text-white w-12 shrink-0">{s.value}</span>
             <span className="text-sm text-white/60 flex-1">{s.label}</span>
             <span className="text-[11px] text-white/35 shrink-0">{s.note}</span>
           </div>
@@ -85,7 +152,7 @@ export default function StudentDashboard({ user }: Props) {
           <div>
             <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Recent Activity</h2>
             <div className="bg-white/[0.03] border border-white/8 rounded-2xl divide-y divide-white/5">
-              {activityItems.map((a, i) => (
+              {recentActivity.map((a, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-3">
                   <span className="text-base">{a.icon}</span>
                   <div className="min-w-0 flex-1">
