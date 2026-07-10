@@ -103,9 +103,6 @@ export default function CourseDetailPage() {
       {/* Hero */}
       <div className={`bg-white/[0.03] border ${enrolled ? tc.ring : "border-white/8"} rounded-2xl p-6 sm:p-8`}>
         <div className="flex flex-col sm:flex-row items-start gap-6">
-          <div className={`w-16 h-16 rounded-2xl ${tc.bg} border ${tc.ring} flex items-center justify-center text-4xl shrink-0`}>
-            <CourseIcon icon={course.icon} size={44} />
-          </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className={`text-xs font-bold capitalize border rounded-full px-3 py-1 ${difficultyBadge[course.difficulty]}`}>
@@ -115,7 +112,10 @@ export default function CourseDetailPage() {
                 {course.track.replace(/-/g, " ")}
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-1">{course.title}</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <CourseIcon icon={course.icon} size={28} />
+              <h1 className="text-2xl font-bold text-white">{course.title}</h1>
+            </div>
             <p className="text-white/50 text-sm mb-4">{course.subtitle}</p>
             <p className="text-white/60 text-sm leading-relaxed">{course.description}</p>
           </div>

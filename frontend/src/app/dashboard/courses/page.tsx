@@ -51,18 +51,17 @@ function CourseCard({ course }: { course: Course }) {
           </div>
         )}
 
-        <div className="flex items-start justify-between mb-3">
-          <div className={`w-11 h-11 rounded-xl ${tc.bg} border ${tc.ring} flex items-center justify-center text-2xl shrink-0`}>
-            <CourseIcon icon={course.icon} size={30} />
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-1.5 min-w-0 pr-1">
+            <CourseIcon icon={course.icon} size={18} />
+            <h3 className="text-white font-bold text-sm group-hover:text-sky-300 transition-colors leading-tight">
+              {course.title}
+            </h3>
           </div>
-          <span className={`text-[11px] font-bold capitalize border rounded-full px-2.5 py-0.5 ${difficultyBadge[course.difficulty]}`}>
+          <span className={`text-[11px] font-bold capitalize border rounded-full px-2.5 py-0.5 shrink-0 ${difficultyBadge[course.difficulty]}`}>
             {course.difficulty}
           </span>
         </div>
-
-        <h3 className="text-white font-bold text-sm mb-1 group-hover:text-sky-300 transition-colors leading-tight">
-          {course.title}
-        </h3>
         <p className="text-white/40 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{course.subtitle}</p>
 
         <div className="flex flex-wrap gap-1.5 mb-3">
