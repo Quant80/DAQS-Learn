@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { CourseIcon } from "@/components/CourseIcon";
 
 const LABS_URL = process.env.NEXT_PUBLIC_LABS_URL ?? "http://localhost:7681";
 const DOCKER_LAB_URL = process.env.NEXT_PUBLIC_DOCKER_LAB_URL ?? "http://localhost:7682";
@@ -20,7 +21,7 @@ const LABS: Lab[] = [
   {
     id: "lab-01",
     title: "Python Fundamentals",
-    icon: "🐍",
+    icon: "/Python-Logo.png",
     difficulty: "beginner",
     duration: 30,
     tags: ["Python", "Basics", "Functions"],
@@ -234,7 +235,7 @@ export default function LabsPage() {
                 : "text-white/50 hover:text-white"
             }`}
           >
-            🐍 Python Lab
+            <CourseIcon icon="/Python-Logo.png" size={14} /> Python Lab
           </button>
           <button
             onClick={() => switchCategory("docker")}
@@ -293,7 +294,7 @@ export default function LabsPage() {
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center text-xl`}>
-                        {lab.icon}
+                        <CourseIcon icon={lab.icon} size={26} />
                       </div>
                       <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${c.bg} ${c.border} ${c.text} capitalize`}>
                         {lab.difficulty}

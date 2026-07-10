@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { CourseIcon } from "@/components/CourseIcon";
 import { courses, tracks, getTotalLessons } from "@/data/courses";
 import type { Course } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
@@ -52,7 +53,7 @@ function CourseCard({ course }: { course: Course }) {
 
         <div className="flex items-start justify-between mb-3">
           <div className={`w-11 h-11 rounded-xl ${tc.bg} border ${tc.ring} flex items-center justify-center text-2xl shrink-0`}>
-            {course.icon}
+            <CourseIcon icon={course.icon} size={30} />
           </div>
           <span className={`text-[11px] font-bold capitalize border rounded-full px-2.5 py-0.5 ${difficultyBadge[course.difficulty]}`}>
             {course.difficulty}
@@ -180,7 +181,7 @@ export default function CoursesPage() {
                 className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-all flex items-center gap-1.5 ${
                   activeTrack === t.id ? `${tc.bg} ${tc.ring} ${tc.text}` : "border-white/10 text-white/50 hover:border-white/25 hover:text-white/80"
                 }`}>
-                {t.icon} {t.label}
+                <CourseIcon icon={t.icon} size={14} /> {t.label}
               </button>
             );
           })}
@@ -228,7 +229,7 @@ export default function CoursesPage() {
             <section key={track.id}>
               <div className="flex items-center gap-3 mb-4">
                 <div className={`w-9 h-9 rounded-xl ${tc.bg} border ${tc.ring} flex items-center justify-center text-lg shrink-0`}>
-                  {track.icon}
+                  <CourseIcon icon={track.icon} size={22} />
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white">{track.label}</h2>
@@ -246,7 +247,7 @@ export default function CoursesPage() {
                   return (
                     <div key={c.id} className="flex items-center gap-2 shrink-0">
                       <div className={`text-center px-3 py-2 rounded-xl border ${tc2.bg} ${tc2.ring} ${tc2.text} text-xs font-medium w-28`}>
-                        <div className="text-lg mb-0.5">{c.icon}</div>
+                        <div className="text-lg mb-0.5 flex justify-center"><CourseIcon icon={c.icon} size={20} /></div>
                         <div className="leading-tight text-[11px]">{c.title.replace(" Fundamentals", "").replace(" Essentials", "").replace(" for Machine Learning", " for ML")}</div>
                         <div className="text-[9px] mt-0.5 opacity-60 capitalize">{c.difficulty}</div>
                       </div>

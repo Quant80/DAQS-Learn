@@ -23,7 +23,7 @@ export const labTracks: LabTrack[] = [
   {
     id: "python",
     label: "Python",
-    icon: "🐍",
+    icon: "/Python-Logo.png",
     color: "sky",
     exercises: [
       {

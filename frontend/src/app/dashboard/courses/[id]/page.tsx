@@ -2,6 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { CourseIcon } from "@/components/CourseIcon";
 import { getCourse, getCoursesByTrack, getPrerequisiteCourses, getTotalLessons } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
 
@@ -103,7 +104,7 @@ export default function CourseDetailPage() {
       <div className={`bg-white/[0.03] border ${enrolled ? tc.ring : "border-white/8"} rounded-2xl p-6 sm:p-8`}>
         <div className="flex flex-col sm:flex-row items-start gap-6">
           <div className={`w-16 h-16 rounded-2xl ${tc.bg} border ${tc.ring} flex items-center justify-center text-4xl shrink-0`}>
-            {course.icon}
+            <CourseIcon icon={course.icon} size={44} />
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -179,7 +180,7 @@ export default function CourseDetailPage() {
               return (
                 <Link key={p.id} href={`/dashboard/courses/${p.id}`}
                   className={`flex items-center gap-3 bg-white/[0.03] border ${done ? "border-emerald-500/30" : ptc.ring} hover:bg-white/[0.06] rounded-xl p-4 transition-all`}>
-                  <span className="text-2xl">{p.icon}</span>
+                  <span className="text-2xl"><CourseIcon icon={p.icon} size={28} /></span>
                   <div className="flex-1 min-w-0">
                     <div className="text-white text-sm font-semibold truncate">{p.title}</div>
                     <div className={`text-xs capitalize ${ptc.text}`}>{p.difficulty} · {p.track.replace(/-/g, " ")}</div>
@@ -303,7 +304,7 @@ export default function CourseDetailPage() {
               return (
                 <Link key={nc.id} href={`/dashboard/courses/${nc.id}`}
                   className={`flex items-center gap-3 bg-white/[0.03] border border-white/8 hover:border-white/20 rounded-xl p-4 transition-all group`}>
-                  <span className="text-2xl">{nc.icon}</span>
+                  <span className="text-2xl"><CourseIcon icon={nc.icon} size={28} /></span>
                   <div className="flex-1 min-w-0">
                     <div className="text-white text-sm font-semibold group-hover:text-sky-300 transition-colors">{nc.title}</div>
                     <div className={`text-xs capitalize ${ntc.text}`}>{nc.difficulty}</div>

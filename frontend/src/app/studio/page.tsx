@@ -80,11 +80,16 @@ function execJS(code: string) {
 }
 
 const LANG_ICON: Record<string, string> = {
-  python: "🐍", javascript: "🟨", typescript: "🔷",
+  python: "/Python-Logo.png", javascript: "🟨", typescript: "🔷",
   html: "🌐", css: "🎨", markdown: "📝", json: "📋",
 };
 function FileIcon({ lang }: { lang: string }) {
-  return <span className="text-xs">{LANG_ICON[lang] ?? "📄"}</span>;
+  const icon = LANG_ICON[lang] ?? "📄";
+  if (icon.startsWith("/")) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={icon} alt="" width={14} height={14} className="object-contain inline-block" />;
+  }
+  return <span className="text-xs">{icon}</span>;
 }
 
 function NewProjectModal({ onClose }: { onClose: () => void }) {

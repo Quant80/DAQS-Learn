@@ -3,6 +3,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { getCourse, getTotalLessons } from "@/data/courses";
+import { CourseIcon } from "@/components/CourseIcon";
 import type { Module, Lesson } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
 import { useCertificates } from "@/store/certificates";
@@ -308,7 +309,7 @@ function LearnPageInner() {
         {/* Course title */}
         <div className="px-4 py-4 border-b border-white/8">
           <Link href={`/dashboard/courses/${id}`} className="flex items-center gap-2 group mb-3">
-            <span className="text-lg">{course.icon}</span>
+            <span className="text-lg"><CourseIcon icon={course.icon} size={20} /></span>
             <div className="min-w-0">
               <div className="text-white text-xs font-bold truncate group-hover:text-sky-300 transition-colors">{course.title}</div>
               <div className="text-white/30 text-[10px]">{course.difficulty}</div>

@@ -34,7 +34,7 @@ export interface Course {
 
 // ─── TRACKS ────────────────────────────────────────────────────────────────
 export const tracks = [
-  { id: "python", label: "Python", color: "sky", icon: "🐍" },
+  { id: "python", label: "Python", color: "sky", icon: "/Python-Logo.png" },
   { id: "data-science", label: "Data Science", color: "violet", icon: "📊" },
   { id: "machine-learning", label: "Machine Learning", color: "amber", icon: "🤖" },
   { id: "deep-learning", label: "Deep Learning", color: "rose", icon: "🧠" },
@@ -58,7 +58,7 @@ export const courses: Course[] = [
     description: "Start your coding journey with Python — the world's most popular programming language. You will go from writing your very first line of code to building real programs with functions, loops, and data structures.",
     track: "python", trackColor: "sky",
     difficulty: "beginner", prerequisites: [], estimatedHours: 8,
-    icon: "🐍",
+    icon: "/Python-Logo.png",
     outcomes: [
       "Write and run Python programs confidently",
       "Use variables, data types, and operators",
@@ -171,7 +171,7 @@ export const courses: Course[] = [
     description: "Take your Python skills to the next level. Master object-oriented programming, handle errors gracefully, work with files, and learn the powerful patterns that professional Python developers use every day.",
     track: "python", trackColor: "sky",
     difficulty: "intermediate", prerequisites: ["python-fundamentals"], estimatedHours: 10,
-    icon: "🐍",
+    icon: "/Python-Logo.png",
     outcomes: [
       "Design and implement Python classes and objects",
       "Handle exceptions professionally",
@@ -327,7 +327,7 @@ export const courses: Course[] = [
     description: "Master Python at an expert level. Learn async/await for high-performance I/O, metaclasses, memory management, professional testing with pytest, and the design patterns used in major Python frameworks.",
     track: "python", trackColor: "sky",
     difficulty: "advanced", prerequisites: ["python-intermediate"], estimatedHours: 12,
-    icon: "🐍",
+    icon: "/Python-Logo.png",
     outcomes: [
       "Write async/await code for concurrent programs",
       "Understand Python's memory model and garbage collection",
