@@ -229,7 +229,7 @@ export default function LabsPage() {
         <div className="ml-4 flex items-center gap-1 bg-white/5 border border-white/8 rounded-xl p-1">
           <button
             onClick={() => switchCategory("python")}
-            className={`text-xs font-semibold rounded-lg px-3 py-1.5 transition-all ${
+            className={`text-xs font-semibold rounded-lg px-3 py-1.5 transition-all flex items-center gap-1.5 ${
               category === "python"
                 ? "bg-sky-500 text-white"
                 : "text-white/50 hover:text-white"
@@ -292,15 +292,17 @@ export default function LabsPage() {
                         : "bg-white/[0.03] border-white/8 hover:bg-white/[0.06] hover:border-white/15"
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center text-xl`}>
-                        <CourseIcon icon={lab.icon} size={26} />
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center shrink-0`}>
+                          <CourseIcon icon={lab.icon} size={20} />
+                        </div>
+                        <h3 className="text-white font-bold text-sm leading-snug">{lab.title}</h3>
                       </div>
-                      <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${c.bg} ${c.border} ${c.text} capitalize`}>
+                      <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${c.bg} ${c.border} ${c.text} capitalize shrink-0 ml-2`}>
                         {lab.difficulty}
                       </span>
                     </div>
-                    <h3 className="text-white font-bold text-sm mb-1 leading-snug">{lab.title}</h3>
                     <p className="text-white/45 text-xs leading-relaxed mb-3">{lab.description}</p>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-white/30">⏱ {lab.duration} min</span>
@@ -318,7 +320,7 @@ export default function LabsPage() {
               <div className="bg-gradient-to-br from-teal-500/10 to-emerald-500/5 border border-teal-500/20 rounded-2xl p-6">
                 <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
                   <h2 className="text-white font-bold flex items-center gap-2 text-base">
-                    <span>{selected.icon}</span> {selected.title}
+                    <CourseIcon icon={selected.icon} size={20} /> {selected.title}
                   </h2>
                   <button
                     onClick={() => setTerminalOpen(true)}

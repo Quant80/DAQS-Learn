@@ -67,13 +67,13 @@ export default function StudentDashboard({ user }: Props) {
               <Link
                 key={m.label}
                 href={m.href}
-                className={`bg-white/[0.03] border border-white/8 rounded-2xl p-4 flex flex-col gap-2 transition-all ${colorRing[m.color]}`}
+                className={`bg-white/[0.03] border border-white/8 rounded-2xl p-4 flex flex-col gap-1.5 transition-all ${colorRing[m.color]}`}
               >
-                <span className="text-2xl">{m.icon}</span>
-                <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl shrink-0">{m.icon}</span>
                   <div className="font-semibold text-white text-sm">{m.label}</div>
-                  <div className="text-white/60 text-xs">{m.desc}</div>
                 </div>
+                <div className="text-white/60 text-xs pl-0.5">{m.desc}</div>
               </Link>
             ))}
           </div>
