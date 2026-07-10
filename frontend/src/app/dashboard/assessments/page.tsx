@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { CourseIcon } from "@/components/CourseIcon";
 import { assessmentTemplates, difficultyColors, getRecommendations } from "@/data/assessmentTemplates";
 import { useSessionStore } from "@/store/assessmentSession";
 import { useLearningProfile } from "@/store/learningProfile";
@@ -54,7 +55,7 @@ export default function AssessmentsPage() {
                 <Link key={t.id} href={`/dashboard/assessments/${t.id}`}>
                   <div className={`bg-white/[0.04] border ${c.border} hover:bg-white/[0.08] rounded-xl p-4 transition-all cursor-pointer h-full`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xl">{t.icon}</span>
+                      <CourseIcon icon={t.icon} size={20} />
                       {done && <span className="text-emerald-400 text-xs font-bold">{session.percentage}% ✓</span>}
                     </div>
                     <div className="text-white text-sm font-semibold leading-tight">{t.title}</div>
@@ -91,7 +92,7 @@ export default function AssessmentsPage() {
         return (
           <section key={subject}>
             <h2 className="text-sm font-bold text-white/60 uppercase tracking-widest mb-3 flex items-center gap-2">
-              <span>{subjectTemplates[0].icon}</span> {subject}
+              <CourseIcon icon={subjectTemplates[0].icon} size={16} /> {subject}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {subjectTemplates.map((t) => {
@@ -111,8 +112,8 @@ export default function AssessmentsPage() {
                       )}
 
                       <div className="flex items-start justify-between mb-3">
-                        <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center text-xl`}>
-                          {t.icon}
+                        <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center`}>
+                          <CourseIcon icon={t.icon} size={24} />
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <span className={`text-xs font-bold capitalize border rounded-full px-2.5 py-0.5 ${c.bg} ${c.border} ${c.text}`}>
