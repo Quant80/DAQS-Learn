@@ -227,11 +227,11 @@ export default function CoursesPage() {
           return (
             <section key={track.id}>
               <div className="flex items-center gap-3 mb-4">
-                <div className={`w-9 h-9 rounded-xl ${tc.bg} border ${tc.ring} flex items-center justify-center text-lg shrink-0`}>
-                  <CourseIcon icon={track.icon} size={22} />
-                </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white">{track.label}</h2>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <CourseIcon icon={track.icon} size={16} />
+                    <h2 className="text-sm font-bold text-white">{track.label}</h2>
+                  </div>
                   <p className="text-white/35 text-xs">
                     {trackCourses.length} courses · {trackCourses.reduce((s, c) => s + c.estimatedHours, 0)}h total
                   </p>
@@ -245,10 +245,12 @@ export default function CoursesPage() {
                   const tc2 = trackColorClass[c.trackColor] ?? trackColorClass.sky;
                   return (
                     <div key={c.id} className="flex items-center gap-2 shrink-0">
-                      <div className={`text-center px-3 py-2 rounded-xl border ${tc2.bg} ${tc2.ring} ${tc2.text} text-xs font-medium w-28`}>
-                        <div className="text-lg mb-0.5 flex justify-center"><CourseIcon icon={c.icon} size={20} /></div>
-                        <div className="leading-tight text-[11px]">{c.title.replace(" Fundamentals", "").replace(" Essentials", "").replace(" for Machine Learning", " for ML")}</div>
-                        <div className="text-[9px] mt-0.5 opacity-60 capitalize">{c.difficulty}</div>
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${tc2.bg} ${tc2.ring} ${tc2.text} text-xs font-medium`}>
+                        <CourseIcon icon={c.icon} size={16} />
+                        <div className="text-left">
+                          <div className="leading-tight text-[11px] font-semibold whitespace-nowrap">{c.title.replace(" Fundamentals", "").replace(" Essentials", "").replace(" for Machine Learning", " for ML")}</div>
+                          <div className="text-[9px] mt-0.5 opacity-60 capitalize">{c.difficulty}</div>
+                        </div>
                       </div>
                       {i < trackCourses.length - 1 && <span className="text-white/20 text-lg shrink-0">→</span>}
                     </div>
