@@ -54,11 +54,13 @@ export default function AssessmentsPage() {
               return (
                 <Link key={t.id} href={`/dashboard/assessments/${t.id}`}>
                   <div className={`bg-white/[0.04] border ${c.border} hover:bg-white/[0.08] rounded-xl p-4 transition-all cursor-pointer h-full`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <CourseIcon icon={t.icon} size={20} />
-                      {done && <span className="text-emerald-400 text-xs font-bold">{session.percentage}% ✓</span>}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CourseIcon icon={t.icon} size={18} />
+                        <div className="text-white text-sm font-semibold leading-tight">{t.title}</div>
+                      </div>
+                      {done && <span className="text-emerald-400 text-xs font-bold shrink-0">{session.percentage}% ✓</span>}
                     </div>
-                    <div className="text-white text-sm font-semibold leading-tight">{t.title}</div>
                     <div className={`text-xs font-bold mt-1.5 ${c.text} capitalize`}>{t.difficulty}</div>
                     <div className="text-white/40 text-xs mt-1">{t.questionCount}q · {t.timeLimit}m</div>
                   </div>
@@ -111,11 +113,14 @@ export default function AssessmentsPage() {
                         </div>
                       )}
 
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={`w-10 h-10 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center`}>
-                          <CourseIcon icon={t.icon} size={24} />
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-8 h-8 rounded-xl ${c.bg} border ${c.border} flex items-center justify-center shrink-0`}>
+                            <CourseIcon icon={t.icon} size={20} />
+                          </div>
+                          <h3 className="text-white font-bold text-sm leading-snug group-hover:text-sky-300 transition-colors">{t.title}</h3>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
                           <span className={`text-xs font-bold capitalize border rounded-full px-2.5 py-0.5 ${c.bg} ${c.border} ${c.text}`}>
                             {t.difficulty}
                           </span>
@@ -124,8 +129,6 @@ export default function AssessmentsPage() {
                           )}
                         </div>
                       </div>
-
-                      <h3 className="text-white font-bold text-base mb-1.5 group-hover:text-sky-300 transition-colors">{t.title}</h3>
                       <p className="text-white/45 text-xs leading-relaxed mb-3">{t.description}</p>
 
                       <div className="flex flex-wrap gap-1.5 mb-3">
