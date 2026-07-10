@@ -41,21 +41,19 @@ export default function StudentDashboard({ user }: Props) {
         <p className="text-white/40 mt-1 text-sm">Here's your learning overview</p>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+      {/* Stats column */}
+      <div className="flex flex-col gap-2 mb-8">
         {[
           { label: "Courses Enrolled", value: "0", icon: "📚", note: "Start exploring" },
           { label: "Hours Learned", value: "0h", icon: "⏱", note: "Keep going" },
           { label: "Assignments Due", value: "0", icon: "📋", note: "All clear" },
           { label: "AI Sessions", value: "0", icon: "🤖", note: "Ask Claude" },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.03] border border-white/8 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-lg">{s.icon}</span>
-              <span className="text-[10px] text-white/45">{s.note}</span>
-            </div>
-            <div className="text-2xl font-bold text-white">{s.value}</div>
-            <div className="text-xs text-white/60 mt-0.5">{s.label}</div>
+          <div key={s.label} className="bg-white/[0.03] border border-white/8 rounded-xl px-4 py-3 flex items-center gap-3">
+            <span className="text-xl w-7 shrink-0">{s.icon}</span>
+            <span className="text-xl font-bold text-white w-10 shrink-0">{s.value}</span>
+            <span className="text-sm text-white/60 flex-1">{s.label}</span>
+            <span className="text-[11px] text-white/35 shrink-0">{s.note}</span>
           </div>
         ))}
       </div>
