@@ -10,6 +10,15 @@ const modules = [
   { icon: "📡", label: "Classroom", desc: "Live video sessions", href: "/dashboard/classroom", color: "rose" },
 ];
 
+const colorRing: Record<string, string> = {
+  sky:     "hover:border-sky-500/40 hover:bg-sky-500/5",
+  indigo:  "hover:border-indigo-500/40 hover:bg-indigo-500/5",
+  violet:  "hover:border-violet-500/40 hover:bg-violet-500/5",
+  emerald: "hover:border-emerald-500/40 hover:bg-emerald-500/5",
+  amber:   "hover:border-amber-500/40 hover:bg-amber-500/5",
+  rose:    "hover:border-rose-500/40 hover:bg-rose-500/5",
+};
+
 const activityItems = [
   { text: "Account created successfully", time: "Just now", icon: "✅" },
   { text: "Welcome to DAQS Learn!", time: "Just now", icon: "🎉" },
@@ -51,36 +60,23 @@ export default function StudentDashboard({ user }: Props) {
         ))}
       </div>
 
-      {/* Launch banner */}
-      <div className="bg-gradient-to-r from-sky-500/10 to-indigo-500/10 border border-sky-500/20 rounded-2xl px-5 py-4 mb-8 flex items-center gap-4">
-        <span className="text-2xl shrink-0">🚀</span>
-        <div>
-          <div className="font-semibold text-sky-300 text-sm">Platform launching soon</div>
-          <div className="text-white/45 text-xs mt-0.5">
-            Your account is ready. Modules go live as each phase completes. You'll be notified when Notebook, Studio, and AI Tutor launch.
-          </div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Modules */}
         <div className="lg:col-span-2">
           <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wider mb-3">Learning Modules</h2>
           <div className="grid grid-cols-2 gap-3">
             {modules.map((m) => (
-              <div
+              <Link
                 key={m.label}
-                className="bg-white/[0.03] border border-white/8 rounded-2xl p-4 flex flex-col gap-2 opacity-60"
+                href={m.href}
+                className={`bg-white/[0.03] border border-white/8 rounded-2xl p-4 flex flex-col gap-2 transition-all ${colorRing[m.color]}`}
               >
                 <span className="text-2xl">{m.icon}</span>
                 <div>
                   <div className="font-semibold text-white text-sm">{m.label}</div>
                   <div className="text-white/60 text-xs">{m.desc}</div>
                 </div>
-                <span className="text-[10px] text-white/20 border border-white/8 rounded-full px-2 py-0.5 self-start">
-                  Coming soon
-                </span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -111,16 +107,14 @@ export default function StudentDashboard({ user }: Props) {
                 <span className="text-base">📚</span>
                 <span className="text-white/70 group-hover:text-white text-sm transition-colors">Browse courses</span>
               </Link>
-              <div className="flex items-center gap-3 bg-white/[0.03] border border-white/8 rounded-xl px-4 py-3 opacity-40 cursor-default">
+              <Link href="/dashboard/tutor" className="flex items-center gap-3 bg-white/[0.03] border border-white/8 hover:border-violet-500/25 hover:bg-white/[0.06] rounded-xl px-4 py-3 transition-all group">
                 <span className="text-base">🤖</span>
-                <span className="text-white/50 text-sm">Ask AI Tutor</span>
-                <span className="ml-auto text-[10px] text-white/20 border border-white/10 rounded px-1">soon</span>
-              </div>
-              <div className="flex items-center gap-3 bg-white/[0.03] border border-white/8 rounded-xl px-4 py-3 opacity-40 cursor-default">
+                <span className="text-white/70 group-hover:text-white text-sm transition-colors">Ask AI Tutor</span>
+              </Link>
+              <Link href="/dashboard/notebook" className="flex items-center gap-3 bg-white/[0.03] border border-white/8 hover:border-sky-500/25 hover:bg-white/[0.06] rounded-xl px-4 py-3 transition-all group">
                 <span className="text-base">🧮</span>
-                <span className="text-white/50 text-sm">Open Notebook</span>
-                <span className="ml-auto text-[10px] text-white/20 border border-white/10 rounded px-1">soon</span>
-              </div>
+                <span className="text-white/70 group-hover:text-white text-sm transition-colors">Open Notebook</span>
+              </Link>
             </div>
           </div>
         </div>
