@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useCourseProgress } from "@/store/courseProgress";
 import { useSessionStore } from "@/store/assessmentSession";
+import { useTutorNotes } from "@/store/tutorNotes";
 import { courses } from "@/data/courses";
 
 const modules = [
@@ -31,6 +32,7 @@ export default function StudentDashboard({ user }: Props) {
   const firstName = user.full_name.split(" ")[0];
   const { progress } = useCourseProgress();
   const sessions = useSessionStore((s) => s.sessions);
+  const { notes: tutorNotes } = useTutorNotes();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -61,6 +63,8 @@ export default function StudentDashboard({ user }: Props) {
   const assessmentsDone = mounted
     ? Object.values(sessions).filter((s) => s.completedAt).length
     : 0;
+
+  const aiSessionCount = mounted ? tutorNotes.length : 0;
 
   const recentActivity: { text: string; time: string; icon: string }[] = [];
   if (mounted) {
@@ -100,7 +104,7 @@ export default function StudentDashboard({ user }: Props) {
     { label: "Courses Enrolled",  value: enrolledCount.toString(),    icon: "📚", note: enrolledCount > 0 ? "Keep going!" : "Start exploring" },
     { label: "Hours Learned",     value: hoursDisplay,                icon: "🕐", note: minutesLearned > 0 ? "Great progress" : "Keep going" },
     { label: "Assessments Done",  value: assessmentsDone.toString(),  icon: "📋", note: assessmentsDone > 0 ? "Well done!" : "All clear" },
-    { label: "AI Sessions",       value: "0",                         icon: "🤖", note: "Ask Claude" },
+    { label: "AI Sessions",       value: aiSessionCount.toString(),   icon: "🤖", note: aiSessionCount > 0 ? "Keep learning!" : "Ask Claude" },
   ];
 
   return (
