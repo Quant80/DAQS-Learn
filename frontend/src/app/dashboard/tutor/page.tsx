@@ -319,6 +319,108 @@ function QuestionCard({ meta }: { meta: QuestionCardMeta }) {
   );
 }
 
+const SITE_URL = "https://learn.daqstech.com";
+
+function ShareToolbar({ getElement, question }: { getElement: () => HTMLElement | null; question: string }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  async function captureImage(): Promise<string | null> {
+    const el = getElement();
+    if (!el) return null;
+    const { default: html2canvas } = await import("html2canvas-pro");
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      backgroundColor: "#0a1120",
+      useCORS: true,
+      allowTaint: true,
+    });
+    return canvas.toDataURL("image/png");
+  }
+
+  function downloadDataUrl(dataUrl: string) {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `DAQS-AI-Tutor-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function handleDownload() {
+    setBusy(true);
+    try {
+      const dataUrl = await captureImage();
+      if (dataUrl) downloadDataUrl(dataUrl);
+    } finally {
+      setBusy(false);
+      setOpen(false);
+    }
+  }
+
+  async function handleShare(platform: "facebook" | "linkedin") {
+    setBusy(true);
+    try {
+      const dataUrl = await captureImage();
+      if (dataUrl) downloadDataUrl(dataUrl);
+      const shareUrl =
+        platform === "facebook"
+          ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SITE_URL)}&quote=${encodeURIComponent(question)}`
+          : `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(SITE_URL)}`;
+      window.open(shareUrl, "_blank", "noopener,noreferrer,width=600,height=650");
+    } finally {
+      setBusy(false);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={busy}
+        className="flex items-center gap-1.5 text-[11px] font-medium text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 rounded-lg px-2.5 py-1 transition-colors disabled:opacity-50"
+      >
+        {busy ? "Preparing…" : "🔗 Share"}
+      </button>
+      {open && (
+        <div className="absolute right-0 bottom-full mb-1.5 w-64 bg-[#0a1628] border border-white/12 rounded-xl shadow-2xl z-30 overflow-hidden">
+          <button
+            onClick={handleDownload}
+            className="w-full text-left px-3.5 py-2.5 text-xs text-white/75 hover:bg-white/5 flex items-center gap-2.5"
+          >
+            <span>🖼️</span> Download as image
+          </button>
+          <button
+            onClick={() => handleShare("facebook")}
+            className="w-full text-left px-3.5 py-2.5 text-xs text-white/75 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/8"
+          >
+            <span>📘</span> Share to Facebook
+          </button>
+          <button
+            onClick={() => handleShare("linkedin")}
+            className="w-full text-left px-3.5 py-2.5 text-xs text-white/75 hover:bg-white/5 flex items-center gap-2.5 border-t border-white/8"
+          >
+            <span>💼</span> Share to LinkedIn
+          </button>
+          <p className="px-3.5 py-2 text-[10px] text-white/30 border-t border-white/8 bg-white/[0.02] leading-relaxed">
+            Downloads an image of this Q&amp;A — attach it to the post that opens.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === "user";
 
@@ -658,6 +760,27 @@ function buildQuestionCardMeta(
   };
 }
 
+type MessageGroup =
+  | { kind: "pair"; user: Message; assistant: Message; assistantIdx: number }
+  | { kind: "single"; msg: Message; idx: number };
+
+function groupMessages(messages: Message[]): MessageGroup[] {
+  const groups: MessageGroup[] = [];
+  let i = 0;
+  while (i < messages.length) {
+    const m = messages[i];
+    const next = messages[i + 1];
+    if (m.role === "user" && next?.role === "assistant") {
+      groups.push({ kind: "pair", user: m, assistant: next, assistantIdx: i + 1 });
+      i += 2;
+    } else {
+      groups.push({ kind: "single", msg: m, idx: i });
+      i += 1;
+    }
+  }
+  return groups;
+}
+
 export default function TutorPage() {
   const user = useAuthStore((s) => s.user);
   const recordTutorMessage = useLearningProfile((s) => s.recordTutorMessage);
@@ -673,6 +796,7 @@ export default function TutorPage() {
   const [currentQIdx, setCurrentQIdx] = useState(-1);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pairRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const assessmentMetaRef = useRef<AssessmentContext | null>(null);
   const assessmentQuestionsRef = useRef<AssessmentQuestion[]>([]);
   const currentQIdxRef = useRef(-1);
@@ -966,9 +1090,34 @@ export default function TutorPage() {
           </div>
         ) : (
           <>
-            {messages.map((msg, i) => (
-              <MessageBubble key={i} msg={msg} />
-            ))}
+            {groupMessages(messages).map((group) => {
+              if (group.kind === "single") {
+                return <MessageBubble key={group.idx} msg={group.msg} />;
+              }
+              const { user, assistant, assistantIdx } = group;
+              return (
+                <div key={assistantIdx} className="space-y-2">
+                  <div
+                    ref={(el) => { pairRefs.current[assistantIdx] = el; }}
+                    className="space-y-3 p-4 rounded-2xl border border-white/5"
+                    style={{ background: "#0a1120" }}
+                  >
+                    <MessageBubble msg={user} />
+                    <MessageBubble msg={assistant} />
+                    <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                      <div className="w-4 h-4 rounded bg-violet-500/30 flex items-center justify-center text-[9px] shrink-0">🤖</div>
+                      <span className="text-[10px] text-white/25 font-medium">DAQS AI Tutor · learn.daqstech.com</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <ShareToolbar
+                      getElement={() => pairRefs.current[assistantIdx] ?? null}
+                      question={user.content}
+                    />
+                  </div>
+                </div>
+              );
+            })}
             {streaming && messages[messages.length - 1]?.role !== "assistant" && (
               <TypingIndicator />
             )}

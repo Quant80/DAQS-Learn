@@ -18,7 +18,7 @@
     "@vercel/blob": "^2.5.0",
     "crypto-js": "^4.2.0",
     "firebase": "^12.15.0",
-    "html2canvas": "^1.4.1",
+    "html2canvas-pro": "^2.2.4",
     "jspdf": "^4.2.1",
     "katex": "^0.17.0",
     "livekit-client": "^2.20.0",

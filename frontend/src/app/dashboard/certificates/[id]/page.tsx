@@ -158,7 +158,7 @@ export default function CertificatePage() {
       const element = document.getElementById("certificate-render");
       if (!element) return;
 
-      const { default: html2canvas } = await import("html2canvas");
+      const { default: html2canvas } = await import("html2canvas-pro");
       const { default: jsPDF } = await import("jspdf");
 
       const canvas = await html2canvas(element, {
