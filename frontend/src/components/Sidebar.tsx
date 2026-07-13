@@ -13,7 +13,7 @@ const studentNav: NavItem[] = [
   { icon: "🧮", label: "Notebook", href: "/dashboard/notebook" },
   { icon: "💻", label: "Studio", href: "/dashboard/studio" },
   { icon: "🤖", label: "AI Tutor", href: "/dashboard/tutor" },
-  { icon: "📐", label: "Graphing Calculator", href: "/dashboard/graphing" },
+  { icon: "📐", label: "Graphing Calculators", href: "/dashboard/graphing" },
   { icon: "📝", label: "My Notes", href: "/dashboard/notes" },
   { icon: "🧪", label: "Labs", href: "/dashboard/labs" },
   { icon: "📋", label: "Assessments", href: "/dashboard/assessments" },
