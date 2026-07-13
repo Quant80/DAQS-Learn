@@ -128,10 +128,19 @@ export default function GraphingPage() {
       {/* ── Calculator ── */}
       <div
         ref={wrapperRef}
-        className={`bg-white/[0.03] border border-white/8 overflow-hidden ${
+        className={`relative bg-white/[0.03] border border-white/8 overflow-hidden ${
           isFullscreen ? "rounded-none" : "rounded-2xl"
         }`}
       >
+        {isFullscreen && (
+          <button
+            onClick={toggleFullscreen}
+            className="absolute top-3 right-3 z-10 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white bg-[#0a1628]/90 hover:bg-[#0a1628] border border-white/15 rounded-lg px-3 py-1.5 shadow-lg backdrop-blur-sm transition-colors"
+          >
+            <span aria-hidden>⤡</span>
+            Exit full view
+          </button>
+        )}
         {status === "error" ? (
           <div className="h-[560px] flex flex-col items-center justify-center gap-2 text-center px-6">
             <span className="text-3xl">📐</span>
