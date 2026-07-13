@@ -27,8 +27,26 @@ const FEATURES = [
 
 export default function GraphingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const calculatorRef = useRef<{ destroy: () => void } | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === wrapperRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      wrapperRef.current?.requestFullscreen();
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -83,20 +101,37 @@ export default function GraphingPage() {
           </p>
         </div>
 
-        <div className={`flex items-center gap-1.5 text-xs font-medium ${
-          status === "ready" ? "text-emerald-400" :
-          status === "error" ? "text-red-400"     : "text-white/40"
-        }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${
-            status === "ready" ? "bg-emerald-400" :
-            status === "error" ? "bg-red-400"     : "bg-white/30 animate-pulse"
-          }`} />
-          {status === "ready" ? "Ready" : status === "error" ? "Failed to load" : "Loading…"}
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${
+            status === "ready" ? "text-emerald-400" :
+            status === "error" ? "text-red-400"     : "text-white/40"
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              status === "ready" ? "bg-emerald-400" :
+              status === "error" ? "bg-red-400"     : "bg-white/30 animate-pulse"
+            }`} />
+            {status === "ready" ? "Ready" : status === "error" ? "Failed to load" : "Loading…"}
+          </div>
+
+          {status !== "error" && (
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <span aria-hidden>{isFullscreen ? "⤡" : "⤢"}</span>
+              {isFullscreen ? "Exit full view" : "Expand"}
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Calculator ── */}
-      <div className="bg-white/[0.03] border border-white/8 rounded-2xl overflow-hidden">
+      <div
+        ref={wrapperRef}
+        className={`bg-white/[0.03] border border-white/8 overflow-hidden ${
+          isFullscreen ? "rounded-none" : "rounded-2xl"
+        }`}
+      >
         {status === "error" ? (
           <div className="h-[560px] flex flex-col items-center justify-center gap-2 text-center px-6">
             <span className="text-3xl">📐</span>
@@ -107,7 +142,10 @@ export default function GraphingPage() {
             </p>
           </div>
         ) : (
-          <div ref={containerRef} className="w-full h-[560px]" />
+          <div
+            ref={containerRef}
+            className={`w-full ${isFullscreen ? "h-screen" : "h-[560px]"}`}
+          />
         )}
       </div>
 
