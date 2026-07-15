@@ -94,6 +94,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   function handleSignOut() {
     onClose?.();
     clearAuth();
+    // Hard navigation, not router.push — forces every per-account zustand
+    // store to re-hydrate from the next user's scoped storage key instead of
+    // carrying the previous account's in-memory state into the new session.
+    window.location.href = "/auth/login";
   }
 
   return (

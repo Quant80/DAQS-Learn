@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export interface NoteMessage {
   role: "user" | "assistant";
@@ -64,6 +65,6 @@ export const useTutorNotes = create<TutorNotesState>()(
           notes: s.notes.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)),
         })),
     }),
-    { name: "daqs-tutor-notes" }
+    { name: "daqs-tutor-notes", storage: userScopedStorage() }
   )
 );

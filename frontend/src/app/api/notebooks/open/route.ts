@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { userWorkspaceDir } from "@/lib/notebookPaths";
 
 // Prefer server-only vars (not baked into public bundle); fall back to NEXT_PUBLIC_ for prod
 const JUPYTER_URL   = process.env.NOTEBOOK_API_URL   ?? process.env.NEXT_PUBLIC_NOTEBOOK_URL  ?? "";
 const JUPYTER_TOKEN = process.env.NOTEBOOK_API_TOKEN ?? process.env.NEXT_PUBLIC_NOTEBOOK_TOKEN ?? "";
 
 export async function POST(req: NextRequest) {
-  const { filename } = await req.json() as { filename: string };
+  const { filename, email } = await req.json() as { filename: string; email?: string };
 
   if (!filename || filename.includes("..") || !filename.endsWith(".ipynb")) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
+  }
+
+  if (!email) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
   if (!JUPYTER_URL) {
@@ -18,46 +23,59 @@ export async function POST(req: NextRequest) {
   }
 
   // Read notebook from Next.js public/notebooks/ directory (server-side, no CORS)
-  let notebookContent: unknown;
   try {
-    const filePath = join(process.cwd(), "public", "notebooks", filename);
-    notebookContent = JSON.parse(readFileSync(filePath, "utf-8"));
+    JSON.parse(readFileSync(join(process.cwd(), "public", "notebooks", filename), "utf-8"));
   } catch {
     return NextResponse.json({ error: "Notebook file not found" }, { status: 404 });
   }
 
-  // Upload to JupyterLab via Contents API (server-side fetch = no browser CORS)
-  // Send as "text" format (raw JSON string) — works across all Jupyter versions
-  const destPath = `daqs-notebooks/${filename}`;
+  // Upload to JupyterLab via Contents API (server-side fetch = no browser CORS),
+  // into this user's own subdirectory so it never collides with another
+  // student's copy of the same course notebook.
+  const USER_DIR = userWorkspaceDir(email);
+  const notebooksDir = `${USER_DIR}/daqs-notebooks`;
+  const destPath = `${notebooksDir}/${filename}`;
   try {
-    // Ensure the daqs-notebooks directory exists first
-    await fetch(`${JUPYTER_URL}/api/contents/daqs-notebooks`, {
-      method: "PUT",
-      headers: { Authorization: `Token ${JUPYTER_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "directory", content: null }),
-    });
-
-    // Upload the notebook as JSON — content must be the parsed notebook object
-    const rawString = readFileSync(join(process.cwd(), "public", "notebooks", filename), "utf-8");
-    const notebookObj = JSON.parse(rawString);
-    const res = await fetch(`${JUPYTER_URL}/api/contents/${destPath}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Token ${JUPYTER_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "notebook",
-        format: "json",
-        content: notebookObj,
-      }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      return NextResponse.json({ error: `JupyterLab upload failed: ${text}` }, { status: 502 });
+    // Ensure the user's directory exists, then the daqs-notebooks/ subdirectory
+    for (const dir of [USER_DIR, notebooksDir]) {
+      await fetch(`${JUPYTER_URL}/api/contents/${dir}`, {
+        method: "PUT",
+        headers: { Authorization: `Token ${JUPYTER_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "directory", content: null }),
+      });
     }
-  } catch (err) {
+
+    // Only seed a fresh copy if the student doesn't already have one — an
+    // unconditional overwrite here would wipe out their prior progress on
+    // this notebook every time they reopen it.
+    const existing = await fetch(`${JUPYTER_URL}/api/contents/${destPath}`, {
+      headers: { Authorization: `Token ${JUPYTER_TOKEN}` },
+    });
+
+    if (existing.status === 404) {
+      const rawString = readFileSync(join(process.cwd(), "public", "notebooks", filename), "utf-8");
+      const notebookObj = JSON.parse(rawString);
+      const res = await fetch(`${JUPYTER_URL}/api/contents/${destPath}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Token ${JUPYTER_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "notebook",
+          format: "json",
+          content: notebookObj,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        return NextResponse.json({ error: `JupyterLab upload failed: ${text}` }, { status: 502 });
+      }
+    } else if (!existing.ok) {
+      return NextResponse.json({ error: "Could not reach JupyterLab" }, { status: 502 });
+    }
+  } catch {
     return NextResponse.json(
       { error: `Cannot reach JupyterLab at ${JUPYTER_URL} — is it running?` },
       { status: 503 }

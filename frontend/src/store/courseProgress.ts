@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 interface CourseProgress {
   courseId: string;
@@ -114,6 +115,6 @@ export const useCourseProgress = create<Store>()(
         });
       },
     }),
-    { name: "daqs-course-progress" }
+    { name: "daqs-course-progress", storage: userScopedStorage() }
   )
 );

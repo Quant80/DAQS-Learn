@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
@@ -9,7 +8,6 @@ import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "fireb
 import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
-  const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,7 +46,10 @@ export default function LoginPage() {
     } catch {
       setAuth({ id: 0, email: userEmail, full_name: displayName || userEmail, role: "student" }, idToken);
     }
-    router.push("/dashboard");
+    // Hard navigation, not router.push — every per-account zustand store
+    // needs to re-hydrate from this user's scoped storage key rather than
+    // keep whichever account's in-memory state happened to be mounted.
+    window.location.href = "/dashboard";
   }
 
   async function handleGoogleSignIn() {

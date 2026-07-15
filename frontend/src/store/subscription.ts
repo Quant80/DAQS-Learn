@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export type Plan = "free" | "pro" | "team";
 export type PaymentProvider = "payfast" | "stripe" | "ozow";
@@ -117,6 +118,6 @@ export const useSubscription = create<Store>()(
         return courseIndex < PLANS.free.limits.courses;
       },
     }),
-    { name: "daqs-subscription" }
+    { name: "daqs-subscription", storage: userScopedStorage() }
   )
 );

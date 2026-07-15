@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
@@ -15,7 +14,6 @@ const ROLES = [
 ] as const;
 
 export default function RegisterPage() {
-  const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [step, setStep] = useState<"role" | "details">("role");
   const [role, setRole] = useState<"student" | "lecturer" | "company">("student");
@@ -38,7 +36,10 @@ export default function RegisterPage() {
     } catch {
       setAuth({ id: 0, email: userEmail, full_name: displayName || userEmail, role }, idToken);
     }
-    router.push("/dashboard");
+    // Hard navigation, not router.push — every per-account zustand store
+    // needs to re-hydrate from this user's scoped storage key rather than
+    // keep whichever account's in-memory state happened to be mounted.
+    window.location.href = "/dashboard";
   }
 
   async function handleGoogleSignIn() {

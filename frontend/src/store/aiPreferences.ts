@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AIProvider } from "@/lib/aiProvider";
 import { DEFAULT_MODEL_ID } from "@/lib/aiProvider";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 interface AIPreferencesStore {
   provider: AIProvider;
@@ -18,6 +19,6 @@ export const useAIPreferences = create<AIPreferencesStore>()(
         set({ provider, modelId });
       },
     }),
-    { name: "daqs-ai-preferences" }
+    { name: "daqs-ai-preferences", storage: userScopedStorage() }
   )
 );

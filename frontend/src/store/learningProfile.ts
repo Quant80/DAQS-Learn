@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export interface SubjectStats {
   attempts: number;
@@ -194,6 +195,6 @@ export const useLearningProfile = create<LearningProfileState>()(
         if (!earned.has("all_rounder") && subjects >= 3) unlockAchievement("all_rounder");
       },
     }),
-    { name: "daqs-learning-profile" }
+    { name: "daqs-learning-profile", storage: userScopedStorage() }
   )
 );

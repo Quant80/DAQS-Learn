@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BankQuestion } from "@/data/questionBank";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 interface SessionAnswer {
   questionId: string;
@@ -96,6 +97,6 @@ export const useSessionStore = create<Store>()(
         });
       },
     }),
-    { name: "daqs-assessment-sessions" }
+    { name: "daqs-assessment-sessions", storage: userScopedStorage() }
   )
 );

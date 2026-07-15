@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export type ClassroomRole = "host" | "student";
 export type ClassStatus = "scheduled" | "live" | "ended";
@@ -124,6 +125,6 @@ export const useClassroom = create<ClassroomStore>()(
         return sessions.find((c) => c.id === activeSessionId) ?? null;
       },
     }),
-    { name: "daqs-classroom" }
+    { name: "daqs-classroom", storage: userScopedStorage() }
   )
 );

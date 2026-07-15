@@ -1,21 +1,53 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useAuthStore } from "@/store/auth";
+import { userWorkspaceDir } from "@/lib/notebookPaths";
 
 const NOTEBOOK_URL = process.env.NEXT_PUBLIC_NOTEBOOK_URL ?? "http://localhost:8888";
 const NOTEBOOK_TOKEN = process.env.NEXT_PUBLIC_NOTEBOOK_TOKEN ?? "daqs2024";
 
-type Status = "checking" | "online" | "offline";
+type Status = "checking" | "preparing" | "online" | "offline";
+
+const STATUS_LABEL: Record<Status, string> = {
+  checking: "Checking…",
+  preparing: "Preparing your workspace…",
+  online: "Online",
+  offline: "Offline",
+};
 
 export default function NotebookPage() {
+  const email = useAuthStore((s) => s.user?.email);
   const [status, setStatus] = useState<Status>("checking");
+  const [workspacePath, setWorkspacePath] = useState<string | null>(null);
 
-  useEffect(() => {
+  const connect = useCallback(() => {
+    if (!email) return;
+    setStatus("checking");
     fetch(`${NOTEBOOK_URL}/api`, { mode: "no-cors" })
-      .then(() => setStatus("online"))
+      .then(async () => {
+        setStatus("preparing");
+        try {
+          const res = await fetch("/api/notebooks/ensure-workspace", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          setWorkspacePath(data.path ?? userWorkspaceDir(email));
+        } catch {
+          setWorkspacePath(userWorkspaceDir(email));
+        }
+        setStatus("online");
+      })
       .catch(() => setStatus("offline"));
-  }, []);
+  }, [email]);
 
-  const labUrl = `${NOTEBOOK_URL}/lab?token=${NOTEBOOK_TOKEN}`;
+  useEffect(() => { connect(); }, [connect]);
+
+  const labUrl = workspacePath
+    ? `${NOTEBOOK_URL}/lab/tree/${workspacePath}?token=${NOTEBOOK_TOKEN}`
+    : `${NOTEBOOK_URL}/lab?token=${NOTEBOOK_TOKEN}`;
+  const ready = status === "online" && workspacePath;
 
   return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 0px)" }}>
@@ -39,17 +71,19 @@ export default function NotebookPage() {
               status === "online"   ? "bg-emerald-400" :
               status === "offline"  ? "bg-red-400"     : "bg-white/30 animate-pulse"
             }`} />
-            {status === "online" ? "Online" : status === "offline" ? "Offline" : "Checking…"}
+            {STATUS_LABEL[status]}
           </div>
 
-          <a
-            href={labUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-sky-400 hover:text-sky-300 border border-sky-500/25 hover:border-sky-500/40 rounded-lg px-3 py-1.5 transition-all"
-          >
-            Open in new tab ↗
-          </a>
+          {ready && (
+            <a
+              href={labUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-sky-400 hover:text-sky-300 border border-sky-500/25 hover:border-sky-500/40 rounded-lg px-3 py-1.5 transition-all"
+            >
+              Open in new tab ↗
+            </a>
+          )}
         </div>
       </div>
 
@@ -70,26 +104,24 @@ export default function NotebookPage() {
             <code className="text-emerald-300 text-xs font-mono">docker compose up notebook</code>
           </div>
           <button
-            onClick={() => {
-              setStatus("checking");
-              setTimeout(() => {
-                fetch(`${NOTEBOOK_URL}/api`, { mode: "no-cors" })
-                  .then(() => setStatus("online"))
-                  .catch(() => setStatus("offline"));
-              }, 1200);
-            }}
+            onClick={connect}
             className="text-sm text-sky-400 hover:text-sky-300 border border-sky-500/25 hover:border-sky-500/40 rounded-xl px-4 py-2 transition-all"
           >
             Retry connection
           </button>
         </div>
-      ) : (
+      ) : ready ? (
         <iframe
           src={labUrl}
           className="flex-1 border-0 w-full"
           allow="clipboard-read; clipboard-write"
           title="DAQS Notebook — JupyterLab"
         />
+      ) : (
+        <div className="flex flex-col items-center justify-center flex-1 text-center gap-4 px-6">
+          <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-orange-400 animate-spin" />
+          <p className="text-white/40 text-sm">{STATUS_LABEL[status]}</p>
+        </div>
       )}
     </div>
   );

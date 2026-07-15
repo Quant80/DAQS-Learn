@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export interface Certificate {
   id: string;           // DAQS-2025-XXXXX
@@ -57,6 +58,6 @@ export const useCertificates = create<Store>()(
         return get().certificates.find((c) => c.id === id);
       },
     }),
-    { name: "daqs-certificates" }
+    { name: "daqs-certificates", storage: userScopedStorage() }
   )
 );

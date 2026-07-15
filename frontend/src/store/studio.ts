@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export type StudioLanguage = "python" | "javascript" | "html" | "css" | "typescript" | "markdown" | "json";
 
@@ -325,7 +326,7 @@ export const useStudio = create<StudioStore>()(
         return project.files.find((f) => f.id === get().activeFileId) ?? null;
       },
     }),
-    { name: "daqs-studio" }
+    { name: "daqs-studio", storage: userScopedStorage() }
   )
 );
 
