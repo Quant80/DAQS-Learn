@@ -21,7 +21,25 @@ function currentUserSuffix(): string {
 }
 
 const scopedStateStorage: StateStorage = {
-  getItem: (name) => window.localStorage.getItem(`${name}::${currentUserSuffix()}`),
+  getItem: (name) => {
+    const scopedKey = `${name}::${currentUserSuffix()}`;
+    const existing = window.localStorage.getItem(scopedKey);
+    if (existing !== null) return existing;
+
+    // One-time migration for accounts that used this app before storage
+    // became per-user: whoever is logged in the first time each store is
+    // read after this update inherits the old shared data instead of
+    // appearing to have lost it. The legacy key is deleted immediately
+    // after, so it can only ever migrate to one account, not leak forward
+    // into the next different account that logs into this browser.
+    const legacy = window.localStorage.getItem(name);
+    if (legacy !== null) {
+      window.localStorage.setItem(scopedKey, legacy);
+      window.localStorage.removeItem(name);
+      return legacy;
+    }
+    return null;
+  },
   setItem: (name, value) => window.localStorage.setItem(`${name}::${currentUserSuffix()}`, value),
   removeItem: (name) => window.localStorage.removeItem(`${name}::${currentUserSuffix()}`),
 };
