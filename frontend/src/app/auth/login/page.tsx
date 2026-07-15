@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
+import { syncPlanFromServer } from "@/lib/syncUser";
 import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -43,6 +44,7 @@ export default function LoginPage() {
         role: "student" | "lecturer" | "admin" | "company" | "parent";
       }>("/auth/firebase", { id_token: idToken });
       setAuth({ id: res.user_id, email: res.email, full_name: res.full_name, role: res.role }, res.access_token);
+      await syncPlanFromServer();
     } catch {
       setAuth({ id: 0, email: userEmail, full_name: displayName || userEmail, role: "student" }, idToken);
     }

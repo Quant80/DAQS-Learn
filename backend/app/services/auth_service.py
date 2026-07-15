@@ -3,13 +3,16 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth as firebase_auth, credentials, initialize_app
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.sql import func
 import jwt
 from datetime import datetime, timedelta
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import TokenResponse
+
+ADMIN_EMAIL_DOMAIN = "@daqstech.com"
 
 bearer_scheme = HTTPBearer()
 
@@ -40,7 +43,7 @@ async def verify_firebase_token(id_token: str) -> dict | None:
 
 async def create_or_get_user(
     firebase_user: dict,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession,
 ) -> TokenResponse:
     result = await db.execute(
         select(User).where(User.firebase_uid == firebase_user["uid"])
@@ -48,15 +51,24 @@ async def create_or_get_user(
     user = result.scalar_one_or_none()
 
     if not user:
+        email = firebase_user.get("email", "")
         user = User(
             firebase_uid=firebase_user["uid"],
-            email=firebase_user.get("email", ""),
+            email=email,
             full_name=firebase_user.get("name", ""),
             avatar_url=firebase_user.get("picture"),
+            # @daqstech.com accounts are trusted staff — admin panel access is
+            # also gated on this same domain check at request time, so this
+            # is just where the role gets set, not the actual security boundary.
+            role=UserRole.admin if email.lower().endswith(ADMIN_EMAIL_DOMAIN) else UserRole.student,
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
+
+    user.last_login_at = func.now()
+    await db.commit()
+    await db.refresh(user)
 
     token = _create_jwt(user)
     return TokenResponse(
@@ -96,4 +108,12 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if user.is_locked:
+        raise HTTPException(status_code=403, detail="This account has been locked. Contact the administrator.")
+    return user
+
+
+async def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != UserRole.admin or not user.email.lower().endswith(ADMIN_EMAIL_DOMAIN):
+        raise HTTPException(status_code=403, detail="Admin access required")
     return user

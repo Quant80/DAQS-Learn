@@ -11,5 +11,13 @@ class UserResponse(BaseModel):
     is_verified: bool
     created_at: datetime
 
+    # Access control — used by the frontend to sync plan/lock/quota state
+    plan: str
+    plan_source: str
+    tutor_uses_count: int
+    tutor_unlocked: bool
+    is_locked: bool
+    last_login_at: datetime | None
+
     class Config:
         from_attributes = True

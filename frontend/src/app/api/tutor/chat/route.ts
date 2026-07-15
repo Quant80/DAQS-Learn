@@ -249,12 +249,44 @@ You know about the DAQS Learn platform features:
 
 Always start your first response by briefly introducing yourself and asking what the student needs help with today — unless they've already asked a question.`;
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+
+/**
+ * Checks the free-tier trial quota against the backend before letting a
+ * message through. Fails OPEN (allows the message) on any network/connection
+ * error reaching the backend — an infra hiccup shouldn't lock every student
+ * out of the tutor, only an explicit quota-exceeded/locked response should.
+ */
+async function checkQuota(authHeader: string | null): Promise<{ allowed: boolean; reason?: string }> {
+  if (!authHeader) return { allowed: true };
+  try {
+    const res = await fetch(`${API_BASE}/tutor/check-quota`, {
+      method: "POST",
+      headers: { Authorization: authHeader },
+    });
+    if (res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      return { allowed: false, reason: body.detail === "This account has been locked. Contact the administrator." ? "locked" : "quota_exceeded" };
+    }
+    if (!res.ok) return { allowed: true }; // backend reachable but erroring — don't block on it
+    const data = await res.json() as { allowed: boolean };
+    return { allowed: data.allowed, reason: data.allowed ? undefined : "quota_exceeded" };
+  } catch {
+    return { allowed: true }; // backend unreachable — fail open
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { messages, provider = "claude", modelId = DEFAULT_MODEL_ID } = await req.json() as {
     messages: ChatMessage[];
     provider?: AIProvider;
     modelId?: string;
   };
+
+  const quota = await checkQuota(req.headers.get("authorization"));
+  if (!quota.allowed) {
+    return Response.json({ error: quota.reason }, { status: 403 });
+  }
 
   if (!hasProviderKey(provider)) {
     return Response.json(

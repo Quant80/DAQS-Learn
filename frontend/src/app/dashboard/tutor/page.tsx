@@ -781,8 +781,11 @@ function groupMessages(messages: Message[]): MessageGroup[] {
   return groups;
 }
 
+type LockReason = "quota_exceeded" | "locked";
+
 export default function TutorPage() {
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const recordTutorMessage = useLearningProfile((s) => s.recordTutorMessage);
   const { provider, modelId } = useAIPreferences();
   const { upsertNote } = useTutorNotes();
@@ -792,6 +795,8 @@ export default function TutorPage() {
   const [error, setError] = useState("");
   const [restored, setRestored] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [locked, setLocked] = useState<LockReason | null>(null);
+  const [requestState, setRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   // Assessment mode state
   const [currentQIdx, setCurrentQIdx] = useState(-1);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -912,7 +917,7 @@ export default function TutorPage() {
   }
 
   async function sendMessage(content: string, questionMeta?: QuestionCardMeta) {
-    if (!content.trim() || streaming) return;
+    if (!content.trim() || streaming || locked) return;
     setError("");
 
     const userMsg: Message = {
@@ -931,13 +936,25 @@ export default function TutorPage() {
     try {
       const res = await fetch("/api/tutor/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           provider,
           modelId,
         }),
       });
+
+      if (res.status === 403) {
+        const err = await res.json().catch(() => ({}));
+        if (err.error === "quota_exceeded" || err.error === "locked") {
+          setLocked(err.error as LockReason);
+          setStreaming(false);
+          return;
+        }
+      }
 
       if (!res.ok) {
         const err = await res.json();
@@ -965,6 +982,20 @@ export default function TutorPage() {
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setStreaming(false);
+    }
+  }
+
+  async function requestAccess() {
+    setRequestState("sending");
+    try {
+      const res = await fetch("/api/tutor/request-access", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      setRequestState("sent");
+    } catch {
+      setRequestState("error");
     }
   }
 
@@ -1161,39 +1192,75 @@ export default function TutorPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="shrink-0 px-4 md:px-8 py-4 border-t border-white/8 bg-[#060d1a]">
-        <div className="max-w-3xl mx-auto">
-          <div className={`flex gap-3 items-end bg-white/[0.04] border hover:border-white/20 focus-within:border-sky-500/40 rounded-2xl px-4 py-3 transition-all ${currentMeta.borderColor} border`}>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleTextareaChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                currentQIdx >= 0
-                  ? "Ask a follow-up about this question… (Enter to send)"
-                  : "Ask your tutor anything… (Enter to send, Shift+Enter for new line)"
-              }
-              disabled={streaming}
-              rows={1}
-              className="flex-1 bg-transparent text-white placeholder-white/25 text-sm resize-none focus:outline-none leading-relaxed min-h-[24px] max-h-40"
-            />
-            <button
-              onClick={() => sendMessage(input)}
-              disabled={!input.trim() || streaming}
-              className="w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all shrink-0"
-            >
-              <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
-              </svg>
-            </button>
+      {/* Input — or a lock screen once the free trial quota is used up */}
+      {locked ? (
+        <div className="shrink-0 px-4 md:px-8 py-5 border-t border-amber-500/20 bg-[#0d0a06]">
+          <div className="max-w-xl mx-auto text-center space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-xl mx-auto">
+              🔒
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm">
+                {locked === "locked" ? "This account has been locked" : "You've used your 2 free AI Tutor questions"}
+              </p>
+              <p className="text-white/45 text-xs mt-1 max-w-sm mx-auto">
+                {locked === "locked"
+                  ? "Contact the DAQS Learn administrator to have this account reviewed."
+                  : "Request access to keep using the AI Tutor — an administrator will review and approve it."}
+              </p>
+            </div>
+            {locked === "quota_exceeded" && (
+              requestState === "sent" ? (
+                <p className="text-emerald-400 text-xs font-medium">✓ Request sent — you'll be able to continue once it's approved.</p>
+              ) : (
+                <button
+                  onClick={requestAccess}
+                  disabled={requestState === "sending"}
+                  className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-[#1a1206] font-bold text-sm px-6 py-2.5 rounded-xl transition-all"
+                >
+                  {requestState === "sending" ? "Sending…" : "Request Access"}
+                </button>
+              )
+            )}
+            {requestState === "error" && (
+              <p className="text-red-400 text-xs">Couldn't send the request — please try again.</p>
+            )}
           </div>
-          <p className={`text-center text-[10px] mt-2 ${currentMeta.color} opacity-50`}>
-            {currentMeta.icon} {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId} · For learning and education only
-          </p>
         </div>
-      </div>
+      ) : (
+        <div className="shrink-0 px-4 md:px-8 py-4 border-t border-white/8 bg-[#060d1a]">
+          <div className="max-w-3xl mx-auto">
+            <div className={`flex gap-3 items-end bg-white/[0.04] border hover:border-white/20 focus-within:border-sky-500/40 rounded-2xl px-4 py-3 transition-all ${currentMeta.borderColor} border`}>
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={handleTextareaChange}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  currentQIdx >= 0
+                    ? "Ask a follow-up about this question… (Enter to send)"
+                    : "Ask your tutor anything… (Enter to send, Shift+Enter for new line)"
+                }
+                disabled={streaming}
+                rows={1}
+                className="flex-1 bg-transparent text-white placeholder-white/25 text-sm resize-none focus:outline-none leading-relaxed min-h-[24px] max-h-40"
+              />
+              <button
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim() || streaming}
+                className="w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all shrink-0"
+              >
+                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+              </button>
+            </div>
+            <p className={`text-center text-[10px] mt-2 ${currentMeta.color} opacity-50`}>
+              {currentMeta.icon} {AI_MODELS.find((m) => m.id === modelId)?.name ?? modelId} · For learning and education only
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

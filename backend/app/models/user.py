@@ -1,4 +1,4 @@
-from sqlalchemy import String, Enum, DateTime, Boolean
+from sqlalchemy import String, Enum, DateTime, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from app.db.session import Base
@@ -13,6 +13,18 @@ class UserRole(str, enum.Enum):
     parent = "parent"
 
 
+class Plan(str, enum.Enum):
+    free = "free"
+    pro = "pro"
+    team = "team"
+
+
+class PlanSource(str, enum.Enum):
+    none = "none"
+    paid = "paid"
+    admin_granted = "admin_granted"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -24,5 +36,14 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.student)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Access control — added for the admin panel / AI Tutor trial gate
+    plan: Mapped[Plan] = mapped_column(Enum(Plan), default=Plan.free)
+    plan_source: Mapped[PlanSource] = mapped_column(Enum(PlanSource), default=PlanSource.none)
+    tutor_uses_count: Mapped[int] = mapped_column(Integer, default=0)
+    tutor_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_login_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

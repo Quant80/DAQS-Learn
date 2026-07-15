@@ -34,9 +34,9 @@ const lecturerNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { icon: "⊞", label: "Overview", href: "/dashboard" },
-  { icon: "👥", label: "Users", href: "/dashboard/users", soon: true },
+  { icon: "👥", label: "Users", href: "/dashboard/admin/users" },
+  { icon: "📨", label: "Requests", href: "/dashboard/admin/requests" },
   { icon: "📖", label: "Courses", href: "/dashboard/courses" },
-  { icon: "💰", label: "Payments", href: "/dashboard/payments", soon: true },
   { icon: "🤝", label: "Consulting", href: "/dashboard/admin/consulting" },
   { icon: "📊", label: "Analytics", href: "/dashboard/analytics", soon: true },
 ];
