@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, date
 
 
 class UserResponse(BaseModel):
@@ -14,10 +14,30 @@ class UserResponse(BaseModel):
     # Access control — used by the frontend to sync plan/lock/quota state
     plan: str
     plan_source: str
+    plan_expires_at: datetime | None
     tutor_uses_count: int
     tutor_unlocked: bool
     is_locked: bool
     last_login_at: datetime | None
 
+    # Profile — all optional, self-reported
+    first_name: str | None
+    last_name: str | None
+    date_of_birth: date | None
+    gender: str | None
+    job_title: str | None
+    nationality: str | None
+    race: str | None
+
     class Config:
         from_attributes = True
+
+
+class ProfileUpdateRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    date_of_birth: date | None = None
+    gender: str | None = None
+    job_title: str | None = None
+    nationality: str | None = None
+    race: str | None = None

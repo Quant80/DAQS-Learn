@@ -24,30 +24,16 @@ export default function CertificatesPage() {
   useEffect(() => setMounted(true), []);
 
   const user = useAuthStore((s) => s.user);
-  const { certificates, issue, hasCertificate } = useCertificates();
+  const { certificates, hydrate, hasCertificate } = useCertificates();
   const { getProgressPercent, isEnrolled } = useCourseProgress();
 
-  // Auto-issue certificates for fully completed courses
+  // Certificates are issued server-side (at 100% lesson completion) —
+  // pull the authoritative list down rather than minting one client-side.
   useEffect(() => {
     if (!user) return;
-    for (const course of courses) {
-      if (!isEnrolled(course.id)) continue;
-      if (hasCertificate(course.id)) continue;
-      const total = getTotalLessons(course);
-      const pct = getProgressPercent(course.id, total);
-      if (pct === 100) {
-        issue({
-          courseId: course.id,
-          courseName: course.title,
-          courseTrack: course.track,
-          courseIcon: course.icon,
-          difficulty: course.difficulty,
-          studentName: user.full_name ?? user.email ?? "Learner",
-          studentEmail: user.email ?? "",
-        });
-      }
-    }
-  }, [user, issue, hasCertificate, isEnrolled, getProgressPercent]);
+    const icons = Object.fromEntries(courses.map((c) => [c.id, c.icon]));
+    hydrate(icons, user.email ?? "");
+  }, [user, hydrate]);
 
   // Courses in progress but not yet completed (to show progress toward next cert)
   const inProgress = courses

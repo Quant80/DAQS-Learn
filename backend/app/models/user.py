@@ -1,4 +1,4 @@
-from sqlalchemy import String, Enum, DateTime, Boolean, Integer
+from sqlalchemy import String, Enum, DateTime, Date, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from app.db.session import Base
@@ -25,6 +25,27 @@ class PlanSource(str, enum.Enum):
     admin_granted = "admin_granted"
 
 
+class Gender(str, enum.Enum):
+    male = "male"
+    female = "female"
+    non_binary = "non_binary"
+    prefer_not_to_say = "prefer_not_to_say"
+
+
+class RaceCategory(str, enum.Enum):
+    """South African B-BBEE / Employment Equity reporting categories.
+
+    Optional, self-reported, POPIA special personal information — must
+    default to NULL and never be pre-selected in any form.
+    """
+    african = "african"
+    coloured = "coloured"
+    indian = "indian"
+    white = "white"
+    other = "other"
+    prefer_not_to_say = "prefer_not_to_say"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -44,6 +65,17 @@ class User(Base):
     tutor_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     last_login_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+    plan_expires_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+
+    # Profile — all optional, self-reported, filled in later via the
+    # student's own Profile page (never collected at registration).
+    first_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    date_of_birth: Mapped[Date | None] = mapped_column(Date, nullable=True)
+    gender: Mapped[Gender | None] = mapped_column(Enum(Gender), nullable=True)
+    job_title: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    nationality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    race: Mapped[RaceCategory | None] = mapped_column(Enum(RaceCategory), nullable=True)
 
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

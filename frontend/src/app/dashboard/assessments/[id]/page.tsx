@@ -6,6 +6,7 @@ import { getRandomQuestions } from "@/data/questionBank";
 import type { BankQuestion } from "@/data/questionBank";
 import { useSessionStore } from "@/store/assessmentSession";
 import { useLearningProfile } from "@/store/learningProfile";
+import { api } from "@/lib/api";
 
 export default function TakeAssessmentPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +38,7 @@ export default function TakeAssessmentPage() {
 
     let totalScore = 0;
     const maxScore = questions.reduce((s, q) => s + q.points, 0);
+    const attemptAnswers: { question_id: string; answer: string; score: number; max_score: number }[] = [];
 
     for (const q of questions) {
       const userAnswer = answers[q.id] ?? "";
@@ -47,9 +49,11 @@ export default function TakeAssessmentPage() {
         const pts = correct ? q.points : 0;
         totalScore += pts;
         saveAnswer(id, { questionId: q.id, answer: userAnswer, score: pts, maxScore: q.points });
+        attemptAnswers.push({ question_id: q.id, answer: userAnswer, score: pts, max_score: q.points });
       } else {
         if (!userAnswer.trim()) {
           saveAnswer(id, { questionId: q.id, answer: "", score: 0, maxScore: q.points });
+          attemptAnswers.push({ question_id: q.id, answer: "", score: 0, max_score: q.points });
           continue;
         }
         try {
@@ -66,8 +70,10 @@ export default function TakeAssessmentPage() {
           const { score, feedback } = await res.json();
           totalScore += score;
           saveAnswer(id, { questionId: q.id, answer: userAnswer, score, maxScore: q.points, feedback });
+          attemptAnswers.push({ question_id: q.id, answer: userAnswer, score, max_score: q.points });
         } catch {
           saveAnswer(id, { questionId: q.id, answer: userAnswer, score: 0, maxScore: q.points, feedback: "Marking error" });
+          attemptAnswers.push({ question_id: q.id, answer: userAnswer, score: 0, max_score: q.points });
         }
       }
     }
@@ -75,8 +81,15 @@ export default function TakeAssessmentPage() {
     completeSession(id, totalScore, maxScore);
     const pct = Math.round((totalScore / maxScore) * 100);
     recordAssessment(template.subject, pct, totalScore, maxScore);
+
+    const startedAt = getSession(id)?.startedAt ?? new Date().toISOString();
+    api.post(`/records/assessments/${id}/attempts`, { started_at: startedAt, answers: attemptAnswers }).catch(() => {
+      // Best-effort — the local session/learningProfile records above are
+      // already saved regardless, this just mirrors the attempt server-side.
+    });
+
     router.push(`/dashboard/assessments/${id}/results`);
-  }, [template, submitting, questions, answers, id, saveAnswer, completeSession, recordAssessment, router]);
+  }, [template, submitting, questions, answers, id, saveAnswer, completeSession, recordAssessment, router, getSession]);
 
   useEffect(() => {
     if (!started || timeLeft === null) return;

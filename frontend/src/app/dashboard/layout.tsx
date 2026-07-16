@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
+import { useCourseProgress } from "@/store/courseProgress";
 import Sidebar from "@/components/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!isAuthenticated()) router.replace("/auth/login");
   }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    const flush = () => useCourseProgress.getState().flushPendingSync();
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, []);
 
   return (
     // h-screen overflow-hidden: locks the dashboard to exactly the viewport height.

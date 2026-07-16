@@ -1,8 +1,10 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useCertificates } from "@/store/certificates";
+import { useAuthStore } from "@/store/auth";
+import { courses } from "@/data/courses";
 
 const trackLabel: Record<string, string> = {
   python: "Python Programming",
@@ -135,8 +137,17 @@ function CertificateDisplay({ cert, forPrint = false }: {
 export default function CertificatePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { getCertificateById } = useCertificates();
+  const { getCertificateById, hydrate, hydrated } = useCertificates();
+  const user = useAuthStore((s) => s.user);
   const cert = getCertificateById(id);
+
+  // Handles direct navigation (refresh, shared link) where this page loads
+  // before the certificates list page has ever hydrated the local cache.
+  useEffect(() => {
+    if (!user || cert || hydrated) return;
+    const icons = Object.fromEntries(courses.map((c) => [c.id, c.icon]));
+    hydrate(icons, user.email ?? "");
+  }, [user, cert, hydrated, hydrate]);
   const [downloading, setDownloading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const certRef = useRef<HTMLDivElement>(null);

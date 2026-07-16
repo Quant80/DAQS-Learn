@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/userScopedStorage";
+import { api } from "@/lib/api";
 
 export interface Certificate {
-  id: string;           // DAQS-2025-XXXXX
+  id: string;           // server verification_code, e.g. DAQS-2026-XXXXXXXXXX
   courseId: string;
   courseName: string;
   courseTrack: string;
@@ -14,36 +15,56 @@ export interface Certificate {
   issuedAt: string;     // ISO date string
 }
 
+interface ServerCertificate {
+  verification_code: string;
+  course_id: string;
+  course_name: string;
+  course_track: string;
+  difficulty: string;
+  student_name: string;
+  issued_at: string;
+}
+
 interface Store {
   certificates: Certificate[];
-  issue(cert: Omit<Certificate, "id" | "issuedAt">): Certificate;
+  hydrated: boolean;
+  hydrate(courseIcons: Record<string, string>, studentEmail: string): Promise<void>;
   hasCertificate(courseId: string): boolean;
   getCertificate(courseId: string): Certificate | undefined;
   getCertificateById(id: string): Certificate | undefined;
-}
-
-function generateId(): string {
-  const year = new Date().getFullYear();
-  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `DAQS-${year}-${rand}`;
 }
 
 export const useCertificates = create<Store>()(
   persist(
     (set, get) => ({
       certificates: [],
+      hydrated: false,
 
-      issue(cert) {
-        const existing = get().certificates.find((c) => c.courseId === cert.courseId);
-        if (existing) return existing;
-
-        const newCert: Certificate = {
-          ...cert,
-          id: generateId(),
-          issuedAt: new Date().toISOString(),
-        };
-        set((s) => ({ certificates: [...s.certificates, newCert] }));
-        return newCert;
+      // Certificates are now issued server-side only (see
+      // POST /records/courses/{id}/lessons/{lessonId}/complete on the
+      // backend), triggered automatically at 100% lesson completion. This
+      // just pulls the authoritative list down; localStorage is kept as an
+      // offline-first cache, not the source of truth.
+      async hydrate(courseIcons, studentEmail) {
+        try {
+          const certs = await api.get<ServerCertificate[]>("/certificates/mine");
+          set({
+            certificates: certs.map((c) => ({
+              id: c.verification_code,
+              courseId: c.course_id,
+              courseName: c.course_name,
+              courseTrack: c.course_track,
+              courseIcon: courseIcons[c.course_id] ?? "🏆",
+              difficulty: c.difficulty,
+              studentName: c.student_name,
+              studentEmail,
+              issuedAt: c.issued_at,
+            })),
+            hydrated: true,
+          });
+        } catch {
+          // Network/backend unavailable — keep whatever's cached locally.
+        }
       },
 
       hasCertificate(courseId) {
@@ -58,6 +79,6 @@ export const useCertificates = create<Store>()(
         return get().certificates.find((c) => c.id === id);
       },
     }),
-    { name: "daqs-certificates", storage: userScopedStorage() }
+    { name: "daqs-certificates", storage: userScopedStorage(), partialize: (s) => ({ certificates: s.certificates }) }
   )
 );

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/userScopedStorage";
+import { api } from "@/lib/api";
 
 interface CourseProgress {
   courseId: string;
@@ -12,8 +13,13 @@ interface CourseProgress {
   lastModuleId?: string;
 }
 
+type PendingSync =
+  | { type: "enroll"; courseId: string }
+  | { type: "lesson"; courseId: string; lessonId: string; moduleId: string };
+
 interface Store {
   progress: Record<string, CourseProgress>; // keyed by courseId
+  pendingSync: PendingSync[];
   enrol(courseId: string): void;
   unenrol(courseId: string): void;
   isEnrolled(courseId: string): boolean;
@@ -22,12 +28,27 @@ interface Store {
   getCourseProgress(courseId: string): CourseProgress | undefined;
   getProgressPercent(courseId: string, totalLessons: number): number;
   setLastPosition(courseId: string, lessonId: string, moduleId: string): void;
+  flushPendingSync(): void;
+}
+
+// Local state updates instantly and works offline (the pre-existing
+// Firebase-fallback login path means the backend is sometimes genuinely
+// unreachable) — the backend calls below are fire-and-forget best-effort
+// mirrors, not the source of truth for the UI. Failures queue into
+// pendingSync and get retried by flushPendingSync().
+function syncEnroll(courseId: string, onFail: () => void) {
+  api.post(`/records/courses/${courseId}/enroll`, {}).catch(onFail);
+}
+
+function syncLessonComplete(courseId: string, lessonId: string, moduleId: string, onFail: () => void) {
+  api.post(`/records/courses/${courseId}/lessons/${lessonId}/complete`, { module_id: moduleId }).catch(onFail);
 }
 
 export const useCourseProgress = create<Store>()(
   persist(
     (set, get) => ({
       progress: {},
+      pendingSync: [],
 
       enrol(courseId) {
         if (get().progress[courseId]) return;
@@ -42,6 +63,9 @@ export const useCourseProgress = create<Store>()(
             },
           },
         }));
+        syncEnroll(courseId, () => {
+          set((s) => ({ pendingSync: [...s.pendingSync, { type: "enroll", courseId }] }));
+        });
       },
 
       unenrol(courseId) {
@@ -85,6 +109,9 @@ export const useCourseProgress = create<Store>()(
             },
           };
         });
+        syncLessonComplete(courseId, lessonId, moduleId, () => {
+          set((s) => ({ pendingSync: [...s.pendingSync, { type: "lesson", courseId, lessonId, moduleId }] }));
+        });
       },
 
       isLessonComplete(courseId, lessonId) {
@@ -113,6 +140,23 @@ export const useCourseProgress = create<Store>()(
             },
           };
         });
+      },
+
+      flushPendingSync() {
+        const pending = get().pendingSync;
+        if (pending.length === 0) return;
+        set({ pendingSync: [] });
+        for (const item of pending) {
+          if (item.type === "enroll") {
+            syncEnroll(item.courseId, () => {
+              set((s) => ({ pendingSync: [...s.pendingSync, item] }));
+            });
+          } else {
+            syncLessonComplete(item.courseId, item.lessonId, item.moduleId, () => {
+              set((s) => ({ pendingSync: [...s.pendingSync, item] }));
+            });
+          }
+        }
       },
     }),
     { name: "daqs-course-progress", storage: userScopedStorage() }

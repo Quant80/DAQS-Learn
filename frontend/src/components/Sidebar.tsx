@@ -20,6 +20,7 @@ const studentNav: NavItem[] = [
   { icon: "📡", label: "Classroom", href: "/dashboard/classroom" },
   { icon: "🏆", label: "Certificates", href: "/dashboard/certificates" },
   { icon: "💳", label: "Billing", href: "/dashboard/billing" },
+  { icon: "🧑", label: "Profile", href: "/dashboard/profile" },
   { icon: "🤝", label: "For Schools", href: "/consulting" },
 ];
 
@@ -30,15 +31,18 @@ const lecturerNav: NavItem[] = [
   { icon: "📋", label: "Assignments", href: "/dashboard/assignments", soon: true },
   { icon: "📡", label: "Live Class", href: "/dashboard/classroom" },
   { icon: "📊", label: "Analytics", href: "/dashboard/analytics", soon: true },
+  { icon: "🧑", label: "Profile", href: "/dashboard/profile" },
 ];
 
 const adminNav: NavItem[] = [
   { icon: "⊞", label: "Overview", href: "/dashboard" },
   { icon: "👥", label: "Users", href: "/dashboard/admin/users" },
+  { icon: "🎓", label: "Student Records", href: "/dashboard/admin/students" },
   { icon: "📨", label: "Requests", href: "/dashboard/admin/requests" },
   { icon: "📖", label: "Courses", href: "/dashboard/courses" },
   { icon: "🤝", label: "Consulting", href: "/dashboard/admin/consulting" },
   { icon: "📊", label: "Analytics", href: "/dashboard/analytics", soon: true },
+  { icon: "🧑", label: "Profile", href: "/dashboard/profile" },
 ];
 
 // The tool pages below aren't role-gated server-side — an admin can already

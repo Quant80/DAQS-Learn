@@ -2,7 +2,7 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
-import { getCourse, getTotalLessons } from "@/data/courses";
+import { courses, getCourse, getTotalLessons } from "@/data/courses";
 import { CourseIcon } from "@/components/CourseIcon";
 import type { Module, Lesson } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
@@ -230,7 +230,7 @@ function LearnPageInner() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { isEnrolled, enrol, isLessonComplete, completeLesson, setLastPosition, getProgressPercent } = useCourseProgress();
-  const { issue, hasCertificate } = useCertificates();
+  const { hasCertificate, hydrate } = useCertificates();
   const user = useAuthStore((s) => s.user);
   const enrolled = isEnrolled(id);
 
@@ -272,20 +272,13 @@ function LearnPageInner() {
     if (!mod) return;
     completeLesson(id, lessonId, moduleId, mod.lessons.length);
 
-    // Check if this was the last lesson — issue certificate
-    const totalLessons = getTotalLessons(c);
-    const completedSoFar = getProgressPercent(id, totalLessons);
+    // Certificates are issued server-side (in the same request that
+    // records this lesson completion) — re-pull the list shortly after so
+    // the newly-earned certificate shows up locally without a full reload.
     const isLastLesson = !next;
-    if (isLastLesson && completedSoFar >= 99 && !hasCertificate(id) && user) {
-      issue({
-        courseId: id,
-        courseName: c.title,
-        courseTrack: c.track,
-        courseIcon: c.icon,
-        difficulty: c.difficulty,
-        studentName: user.full_name ?? user.email ?? "Learner",
-        studentEmail: user.email ?? "",
-      });
+    if (isLastLesson && !hasCertificate(id) && user) {
+      const icons = Object.fromEntries(courses.map((crs) => [crs.id, crs.icon]));
+      setTimeout(() => hydrate(icons, user.email ?? ""), 1500);
     }
 
     if (next) navigate(next.mod, next.lesson);
