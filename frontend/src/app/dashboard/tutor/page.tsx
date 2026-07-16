@@ -1222,6 +1222,21 @@ export default function TutorPage() {
                 </button>
               )
             )}
+            {locked === "locked" && (
+              // A locked account is rejected by every authenticated endpoint
+              // (including the request-access API), so there's no in-app
+              // action available here — a direct email is the only option.
+              <a
+                href={`mailto:Ncube.T@daqstech.com?subject=${encodeURIComponent(
+                  "DAQS Learn — account locked, please review"
+                )}&body=${encodeURIComponent(
+                  `Hi,\n\nMy DAQS Learn account (${user?.email ?? ""}) has been locked. Could you please review it?\n\nThanks.`
+                )}`}
+                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-[#1a1206] font-bold text-sm px-6 py-2.5 rounded-xl transition-all"
+              >
+                Email Administrator
+              </a>
+            )}
             {requestState === "error" && (
               <p className="text-red-400 text-xs">Couldn't send the request — please try again.</p>
             )}
