@@ -26,12 +26,23 @@ export async function POST(req: NextRequest) {
 
   const USER_DIR = userWorkspaceDir(email);
 
-  try {
-    await fetch(`${JUPYTER_URL}/api/contents/${USER_DIR}`, {
+  async function ensureDir(path: string) {
+    const res = await fetch(`${JUPYTER_URL}/api/contents/${path}`, {
       method: "PUT",
       headers: { Authorization: `Token ${JUPYTER_TOKEN}`, "Content-Type": "application/json" },
       body: JSON.stringify({ type: "directory", content: null }),
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Failed to create directory "${path}": ${res.status} ${body}`);
+    }
+  }
+
+  try {
+    // Jupyter's contents API doesn't auto-create intermediate directories,
+    // so the shared "users" root must exist before a per-user subdir under it.
+    await ensureDir("users");
+    await ensureDir(USER_DIR);
 
     const notebooksSrcDir = join(process.cwd(), "public", "notebooks");
     const starterFiles = readdirSync(notebooksSrcDir).filter((f) => f.endsWith(".ipynb"));
@@ -44,17 +55,24 @@ export async function POST(req: NextRequest) {
         });
         if (existing.status !== 404) return; // already has their own copy
 
-        const notebookObj = JSON.parse(readFileSync(join(notebooksSrcDir, filename), "utf-8"));
-        await fetch(`${JUPYTER_URL}/api/contents/${destPath}`, {
+        let raw = readFileSync(join(notebooksSrcDir, filename), "utf-8");
+        if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1); // strip BOM, breaks JSON.parse
+        const notebookObj = JSON.parse(raw);
+
+        const putRes = await fetch(`${JUPYTER_URL}/api/contents/${destPath}`, {
           method: "PUT",
           headers: { Authorization: `Token ${JUPYTER_TOKEN}`, "Content-Type": "application/json" },
           body: JSON.stringify({ type: "notebook", format: "json", content: notebookObj }),
         });
+        if (!putRes.ok) {
+          const body = await putRes.text().catch(() => "");
+          throw new Error(`Failed to create "${destPath}": ${putRes.status} ${body}`);
+        }
       })
     );
-  } catch {
+  } catch (err) {
     return NextResponse.json(
-      { error: `Cannot reach JupyterLab at ${JUPYTER_URL} — is it running?` },
+      { error: err instanceof Error ? err.message : `Cannot reach JupyterLab at ${JUPYTER_URL}` },
       { status: 503 }
     );
   }
