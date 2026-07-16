@@ -51,6 +51,8 @@ async def _get_user_or_404(user_id: int, db: AsyncSession) -> User:
 
 @router.post("/users/{user_id}/lock", response_model=AdminUserResponse)
 async def lock_user(user_id: int, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot lock your own account")
     user = await _get_user_or_404(user_id, db)
     user.is_locked = True
     await db.commit()

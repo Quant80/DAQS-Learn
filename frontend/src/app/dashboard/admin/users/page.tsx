@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/auth";
 
 interface AdminUser {
   id: number;
@@ -24,6 +25,7 @@ function formatDate(iso: string | null) {
 }
 
 export default function AdminUsersPage() {
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -93,9 +95,13 @@ export default function AdminUsersPage() {
                   ? "Unlimited"
                   : `${u.tutor_uses_count}/${FREE_TUTOR_LIMIT}`;
                 const busy = busyId === u.id;
+                const isSelf = u.id === currentUserId;
                 return (
                   <tr key={u.id} className="border-b border-white/5 last:border-0 align-top">
-                    <td className="px-4 py-3 text-white font-medium">{u.full_name}</td>
+                    <td className="px-4 py-3 text-white font-medium">
+                      {u.full_name}
+                      {isSelf && <span className="text-white/30 font-normal"> (you)</span>}
+                    </td>
                     <td className="px-4 py-3 text-white/60">{u.email}</td>
                     <td className="px-4 py-3 text-white/50 capitalize">{u.role}</td>
                     <td className="px-4 py-3">
@@ -155,7 +161,8 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3 text-white/40 text-xs whitespace-nowrap">{formatDate(u.last_login_at)}</td>
                     <td className="px-4 py-3">
                       <button
-                        disabled={busy}
+                        disabled={busy || (isSelf && !u.is_locked)}
+                        title={isSelf && !u.is_locked ? "You can't lock your own account" : undefined}
                         onClick={() => runAction(u.id, u.is_locked ? "unlock" : "lock")}
                         className="text-xs text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 rounded-lg px-2.5 py-1 transition-all disabled:opacity-40"
                       >

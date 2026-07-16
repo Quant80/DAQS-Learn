@@ -41,18 +41,38 @@ const adminNav: NavItem[] = [
   { icon: "📊", label: "Analytics", href: "/dashboard/analytics", soon: true },
 ];
 
+// The tool pages below aren't role-gated server-side — an admin can already
+// open them by URL. These links just surface that in the nav so admins can
+// check what students/lecturers see without switching accounts.
+const adminToolsNav: NavItem[] = [
+  { icon: "🧮", label: "Notebook", href: "/dashboard/notebook" },
+  { icon: "💻", label: "Studio", href: "/dashboard/studio" },
+  { icon: "🤖", label: "AI Tutor", href: "/dashboard/tutor" },
+  { icon: "📐", label: "Graphing Calculators", href: "/dashboard/graphing" },
+  { icon: "🧪", label: "Labs", href: "/dashboard/labs" },
+  { icon: "📋", label: "Assessments", href: "/dashboard/assessments" },
+  { icon: "📡", label: "Classroom", href: "/dashboard/classroom" },
+  { icon: "🏆", label: "Certificates", href: "/dashboard/certificates" },
+];
+
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
 
-function NavLinks({ nav, pathname, onClose }: {
+function NavLinks({ nav, pathname, onClose, label }: {
   nav: NavItem[];
   pathname: string;
   onClose?: () => void;
+  label?: string;
 }) {
   return (
-    <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+    <nav className="px-3 py-4 space-y-0.5">
+      {label && (
+        <div className="px-3 pt-2 pb-1 text-[10px] font-semibold text-white/25 uppercase tracking-wider">
+          {label}
+        </div>
+      )}
       {nav.map((item) => {
         const active = pathname === item.href;
         return (
@@ -86,9 +106,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { user, clearAuth } = useAuthStore();
 
+  const isAdmin = user?.role === "admin";
   const nav =
     user?.role === "lecturer" ? lecturerNav :
-    user?.role === "admin"    ? adminNav :
+    isAdmin                   ? adminNav :
     studentNav;
 
   function handleSignOut() {
@@ -125,7 +146,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       </div>
 
       {/* Nav links */}
-      <NavLinks nav={nav} pathname={pathname} onClose={onClose} />
+      <div className="flex-1 overflow-y-auto">
+        <NavLinks nav={nav} pathname={pathname} onClose={onClose} />
+        {isAdmin && <NavLinks nav={adminToolsNav} pathname={pathname} onClose={onClose} label="Student / lecturer tools" />}
+      </div>
 
       {/* User card + sign out */}
       <div className="px-3 py-4 border-t border-white/8">
