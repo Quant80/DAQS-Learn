@@ -4,10 +4,14 @@ from app.models.user import User, UserRole
 
 PYTHON_PROMO_CAP = 100
 
-# Matches frontend/src/data/courses.ts course ids for "Python Beginner" and
-# "Python Intermediate" — kept in sync manually, same tradeoff as the rest
-# of the course/assessment reference-table sync in this codebase.
+# Matches frontend/src/lib/pythonCourseTiers.ts — kept in sync manually,
+# same tradeoff as the rest of the course/assessment reference-table sync
+# in this codebase.
 PYTHON_PROMO_COURSE_IDS = {"python-fundamentals", "python-intermediate"}
+
+# Pro/Team plan only — no promo path. Python Advanced was never part of the
+# "first 100 free" offer; it's a paid-tier course.
+PYTHON_PRO_ONLY_COURSE_IDS = {"python-advanced"}
 
 
 async def maybe_grant_python_promo(user: User, db: AsyncSession) -> None:

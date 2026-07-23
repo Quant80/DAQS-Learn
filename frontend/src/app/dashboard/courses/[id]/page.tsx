@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CourseIcon } from "@/components/CourseIcon";
 import { getCourse, getCoursesByTrack, getPrerequisiteCourses, getTotalLessons } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
-import { useSubscription } from "@/store/subscription";
+import { useSubscription, PYTHON_PRO_ONLY_COURSE_IDS } from "@/store/subscription";
 import { usePromoStatus } from "@/lib/usePromoStatus";
 
 const difficultyBadge: Record<string, string> = {
@@ -153,16 +153,27 @@ export default function CourseDetailPage() {
         {!enrolled && !accessible ? (
           <div className="mt-6 bg-amber-500/10 border border-amber-500/25 rounded-xl p-5 text-center space-y-3">
             <div className="text-2xl">🔒</div>
-            <p className="text-white font-semibold text-sm">
-              {promoStatus && promoStatus.remaining > 0
-                ? `This course is free for the first 100 sign-ups — ${promoStatus.remaining} spot${promoStatus.remaining === 1 ? "" : "s"} left`
-                : "The free promo spots for this course are all claimed"}
-            </p>
-            <p className="text-white/45 text-xs max-w-sm mx-auto">
-              {promoStatus && promoStatus.remaining > 0
-                ? "New accounts get this course free automatically while spots remain. Existing accounts can unlock it with Pro."
-                : "Upgrade to Pro to unlock this course, along with every other course on DAQS Learn."}
-            </p>
+            {PYTHON_PRO_ONLY_COURSE_IDS.includes(id) ? (
+              <>
+                <p className="text-white font-semibold text-sm">This course requires a Pro plan</p>
+                <p className="text-white/45 text-xs max-w-sm mx-auto">
+                  Upgrade to Pro to unlock this course, along with every other course on DAQS Learn.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-white font-semibold text-sm">
+                  {promoStatus && promoStatus.remaining > 0
+                    ? `This course is free for the first 100 sign-ups — ${promoStatus.remaining} spot${promoStatus.remaining === 1 ? "" : "s"} left`
+                    : "The free promo spots for this course are all claimed"}
+                </p>
+                <p className="text-white/45 text-xs max-w-sm mx-auto">
+                  {promoStatus && promoStatus.remaining > 0
+                    ? "New accounts get this course free automatically while spots remain. Existing accounts can unlock it with Pro."
+                    : "Upgrade to Pro to unlock this course, along with every other course on DAQS Learn."}
+                </p>
+              </>
+            )}
             <Link
               href="/dashboard/billing"
               className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-[#1a1206] font-bold text-sm px-6 py-2.5 rounded-xl transition-all"

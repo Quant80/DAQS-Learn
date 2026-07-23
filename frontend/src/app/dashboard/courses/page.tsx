@@ -5,7 +5,7 @@ import { CourseIcon } from "@/components/CourseIcon";
 import { courses, tracks, getTotalLessons } from "@/data/courses";
 import type { Course } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
-import { useSubscription, PYTHON_PROMO_COURSE_IDS } from "@/store/subscription";
+import { useSubscription, PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS } from "@/store/subscription";
 import { usePromoStatus } from "@/lib/usePromoStatus";
 
 const difficultyBadge: Record<string, string> = {
@@ -43,6 +43,8 @@ function CourseCard({ course }: { course: Course }) {
   const pct = mounted ? getProgressPercent(course.id, totalLessons) : 0;
   const tc = trackColorClass[course.trackColor] ?? trackColorClass.sky;
   const isPromoCourse = PYTHON_PROMO_COURSE_IDS.includes(course.id);
+  const isProOnlyCourse = PYTHON_PRO_ONLY_COURSE_IDS.includes(course.id);
+  const isGatedCourse = isPromoCourse || isProOnlyCourse;
   const accessible = !mounted || canAccessCourse(course.id);
 
   return (
@@ -69,13 +71,15 @@ function CourseCard({ course }: { course: Course }) {
             {course.difficulty}
           </span>
         </div>
-        {isPromoCourse && mounted && !isProOrTeam() && (
+        {isGatedCourse && mounted && !isProOrTeam() && (
           <span className={`inline-flex items-center gap-1 text-[10px] font-bold border rounded-full px-2 py-0.5 mb-2 w-fit ${
             accessible
               ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/25"
               : "text-amber-400 bg-amber-500/10 border-amber-500/25"
           }`}>
-            {accessible ? (pythonPromoGranted ? "🎁 Free — your spot" : "🎁 Free") : "🔒 Pro"}
+            {isProOnlyCourse
+              ? "🔒 Pro"
+              : accessible ? (pythonPromoGranted ? "🎁 Free — your spot" : "🎁 Free") : "🔒 Pro"}
           </span>
         )}
         <p className="text-white/40 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{course.subtitle}</p>

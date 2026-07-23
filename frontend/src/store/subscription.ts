@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/userScopedStorage";
+import { PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS } from "@/lib/pythonCourseTiers";
+
+export { PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS };
 
 export type Plan = "free" | "pro" | "team";
 export type PaymentProvider = "payfast" | "stripe" | "ozow";
@@ -74,10 +77,6 @@ export const PLANS = {
   },
 } as const;
 
-// "First 100 sign-ups learn Python free" promo — matches
-// frontend/src/data/courses.ts ids and backend/app/services/promo.py.
-export const PYTHON_PROMO_COURSE_IDS = ["python-fundamentals", "python-intermediate"];
-
 interface Store {
   subscription: Subscription;
   pythonPromoGranted: boolean;
@@ -125,6 +124,7 @@ export const useSubscription = create<Store>()(
       },
 
       canAccessCourse(courseId) {
+        if (PYTHON_PRO_ONLY_COURSE_IDS.includes(courseId)) return get().isProOrTeam();
         if (!PYTHON_PROMO_COURSE_IDS.includes(courseId)) return true;
         if (get().isProOrTeam()) return true;
         return get().pythonPromoGranted;

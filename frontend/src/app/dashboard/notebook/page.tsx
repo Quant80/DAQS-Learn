@@ -17,11 +17,12 @@ const STATUS_LABEL: Record<Status, string> = {
 
 export default function NotebookPage() {
   const email = useAuthStore((s) => s.user?.email);
+  const token = useAuthStore((s) => s.token);
   const [status, setStatus] = useState<Status>("checking");
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
 
   const connect = useCallback(() => {
-    if (!email) return;
+    if (!email || !token) return;
     setStatus("checking");
     fetch(`${NOTEBOOK_URL}/api`, { mode: "no-cors" })
       .then(async () => {
@@ -29,7 +30,7 @@ export default function NotebookPage() {
         try {
           const res = await fetch("/api/notebooks/ensure-workspace", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ email }),
           });
           const data = await res.json();
@@ -40,7 +41,7 @@ export default function NotebookPage() {
         setStatus("online");
       })
       .catch(() => setStatus("offline"));
-  }, [email]);
+  }, [email, token]);
 
   useEffect(() => { connect(); }, [connect]);
 

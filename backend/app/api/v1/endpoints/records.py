@@ -13,7 +13,7 @@ from app.models.enrollment import Enrollment, EnrollmentStatus, LessonCompletion
 from app.models.assessment_attempt import AssessmentAttempt
 from app.models.certificate import Certificate
 from app.services.auth_service import get_current_user
-from app.services.promo import PYTHON_PROMO_COURSE_IDS
+from app.services.promo import PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS
 
 # Crockford Base32 — avoids ambiguous 0/O, 1/I/L when a code is typed by hand.
 _CROCKFORD_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -63,6 +63,9 @@ class EnrollmentResponse(BaseModel):
 
 @router.post("/courses/{course_id}/enroll", response_model=EnrollmentResponse)
 async def enroll(course_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if course_id in PYTHON_PRO_ONLY_COURSE_IDS and current_user.plan == Plan.free:
+        raise HTTPException(status_code=403, detail="This course requires a Pro plan.")
+
     if (
         course_id in PYTHON_PROMO_COURSE_IDS
         and current_user.plan == Plan.free
