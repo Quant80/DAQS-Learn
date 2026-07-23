@@ -74,21 +74,32 @@ export const PLANS = {
   },
 } as const;
 
+// "First 100 sign-ups learn Python free" promo — matches
+// frontend/src/data/courses.ts ids and backend/app/services/promo.py.
+export const PYTHON_PROMO_COURSE_IDS = ["python-fundamentals", "python-intermediate"];
+
 interface Store {
   subscription: Subscription;
+  pythonPromoGranted: boolean;
   setSubscription(sub: Subscription): void;
+  setPythonPromoGranted(granted: boolean): void;
   activatePro(provider: PaymentProvider, ref: string, months?: number): void;
   isProOrTeam(): boolean;
-  canAccessCourse(courseIndex: number): boolean;
+  canAccessCourse(courseId: string): boolean;
 }
 
 export const useSubscription = create<Store>()(
   persist(
     (set, get) => ({
       subscription: { plan: "free", status: "active" },
+      pythonPromoGranted: false,
 
       setSubscription(sub) {
         set({ subscription: sub });
+      },
+
+      setPythonPromoGranted(granted) {
+        set({ pythonPromoGranted: granted });
       },
 
       activatePro(provider, ref, months = 1) {
@@ -113,9 +124,10 @@ export const useSubscription = create<Store>()(
         return true;
       },
 
-      canAccessCourse(courseIndex) {
+      canAccessCourse(courseId) {
+        if (!PYTHON_PROMO_COURSE_IDS.includes(courseId)) return true;
         if (get().isProOrTeam()) return true;
-        return courseIndex < PLANS.free.limits.courses;
+        return get().pythonPromoGranted;
       },
     }),
     { name: "daqs-subscription", storage: userScopedStorage() }

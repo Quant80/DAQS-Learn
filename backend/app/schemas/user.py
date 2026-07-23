@@ -19,6 +19,7 @@ class UserResponse(BaseModel):
     tutor_unlocked: bool
     is_locked: bool
     last_login_at: datetime | None
+    python_promo_granted: bool
 
     # Profile — all optional, self-reported
     first_name: str | None

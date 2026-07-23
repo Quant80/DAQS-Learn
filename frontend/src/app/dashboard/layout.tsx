@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/store/auth";
 import { useCourseProgress } from "@/store/courseProgress";
+import { syncPlanFromServer } from "@/lib/syncUser";
 import Sidebar from "@/components/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     window.addEventListener("online", flush);
     return () => window.removeEventListener("online", flush);
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated()) syncPlanFromServer();
+  }, [isAuthenticated]);
 
   return (
     // h-screen overflow-hidden: locks the dashboard to exactly the viewport height.

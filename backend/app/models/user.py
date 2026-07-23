@@ -67,6 +67,12 @@ class User(Base):
     last_login_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
     plan_expires_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
 
+    # "First 100 sign-ups learn Python free" promo — granted once, at account
+    # creation, to the first 100 students (see services/promo.py). Not tied
+    # to plan/plan_source since it's a scoped course-access grant, not a
+    # billing tier.
+    python_promo_granted: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # Profile — all optional, self-reported, filled in later via the
     # student's own Profile page (never collected at registration).
     first_name: Mapped[str | None] = mapped_column(String(120), nullable=True)

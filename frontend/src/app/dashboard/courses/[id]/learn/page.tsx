@@ -7,6 +7,7 @@ import { CourseIcon } from "@/components/CourseIcon";
 import type { Module, Lesson } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
 import { useCertificates } from "@/store/certificates";
+import { useSubscription } from "@/store/subscription";
 import { useAuthStore } from "@/store/auth";
 
 const NOTEBOOK_URL = process.env.NEXT_PUBLIC_NOTEBOOK_URL ?? "http://localhost:8888";
@@ -231,12 +232,21 @@ function LearnPageInner() {
 
   const { isEnrolled, enrol, isLessonComplete, completeLesson, setLastPosition, getProgressPercent } = useCourseProgress();
   const { hasCertificate, hydrate } = useCertificates();
+  const canAccessCourse = useSubscription((s) => s.canAccessCourse);
   const user = useAuthStore((s) => s.user);
   const enrolled = isEnrolled(id);
+  const accessible = course ? canAccessCourse(course.id) : true;
+
+  // Deep-link protection — server-side enroll already rejects gated courses,
+  // but this content itself is static/bundled, so the redirect has to
+  // happen here too, not just hide the "Enrol" button on the detail page.
+  useEffect(() => {
+    if (course && !accessible) router.replace(`/dashboard/courses/${id}`);
+  }, [course, accessible, id, router]);
 
   useEffect(() => {
-    if (course && !enrolled) enrol(id);
-  }, [course, enrolled, id, enrol]);
+    if (course && !enrolled && accessible) enrol(id);
+  }, [course, enrolled, accessible, id, enrol]);
 
   useEffect(() => {
     if (moduleId && lessonId) setLastPosition(id, lessonId, moduleId);
@@ -249,6 +259,10 @@ function LearnPageInner() {
         <Link href="/dashboard/courses" className="text-sky-400 hover:text-sky-300 text-sm">Back to courses →</Link>
       </div>
     );
+  }
+
+  if (!accessible) {
+    return null;
   }
 
   const allLessons: Array<{ mod: Module; lesson: Lesson }> = course.modules.flatMap((mod) =>

@@ -5,6 +5,8 @@ import { CourseIcon } from "@/components/CourseIcon";
 import { courses, tracks, getTotalLessons } from "@/data/courses";
 import type { Course } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
+import { useSubscription, PYTHON_PROMO_COURSE_IDS } from "@/store/subscription";
+import { usePromoStatus } from "@/lib/usePromoStatus";
 
 const difficultyBadge: Record<string, string> = {
   beginner:     "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
@@ -27,6 +29,9 @@ const trackColorClass: Record<string, { ring: string; bg: string; text: string }
 
 function CourseCard({ course }: { course: Course }) {
   const { isEnrolled, getCourseProgress, getProgressPercent } = useCourseProgress();
+  const canAccessCourse = useSubscription((s) => s.canAccessCourse);
+  const isProOrTeam = useSubscription((s) => s.isProOrTeam);
+  const pythonPromoGranted = useSubscription((s) => s.pythonPromoGranted);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -37,6 +42,8 @@ function CourseCard({ course }: { course: Course }) {
   const totalLessons = getTotalLessons(course);
   const pct = mounted ? getProgressPercent(course.id, totalLessons) : 0;
   const tc = trackColorClass[course.trackColor] ?? trackColorClass.sky;
+  const isPromoCourse = PYTHON_PROMO_COURSE_IDS.includes(course.id);
+  const accessible = !mounted || canAccessCourse(course.id);
 
   return (
     <Link href={`/dashboard/courses/${course.id}`}>
@@ -62,6 +69,15 @@ function CourseCard({ course }: { course: Course }) {
             {course.difficulty}
           </span>
         </div>
+        {isPromoCourse && mounted && !isProOrTeam() && (
+          <span className={`inline-flex items-center gap-1 text-[10px] font-bold border rounded-full px-2 py-0.5 mb-2 w-fit ${
+            accessible
+              ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/25"
+              : "text-amber-400 bg-amber-500/10 border-amber-500/25"
+          }`}>
+            {accessible ? (pythonPromoGranted ? "🎁 Free — your spot" : "🎁 Free") : "🔒 Pro"}
+          </span>
+        )}
         <p className="text-white/40 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{course.subtitle}</p>
 
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -106,6 +122,7 @@ export default function CoursesPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const { progress } = useCourseProgress();
+  const promoStatus = usePromoStatus();
 
   const enrolledIds = mounted ? Object.keys(progress) : [];
   const enrolledCourses = courses.filter((c) => enrolledIds.includes(c.id));
@@ -130,6 +147,17 @@ export default function CoursesPage() {
           From Python fundamentals to Agentic AI — structured paths with clear prerequisites
         </p>
       </div>
+
+      {/* Python promo banner */}
+      {promoStatus && promoStatus.remaining > 0 && (
+        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-2xl px-5 py-3 flex items-center gap-3">
+          <span className="text-xl">🎁</span>
+          <p className="text-sm text-emerald-300">
+            <span className="font-bold">Python Beginner &amp; Intermediate are free for the first 100 sign-ups</span>
+            {" — "}{promoStatus.remaining} spot{promoStatus.remaining === 1 ? "" : "s"} left.
+          </p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

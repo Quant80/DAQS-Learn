@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenResponse
+from app.services.promo import maybe_grant_python_promo
 
 ADMIN_EMAIL_DOMAIN = "@daqstech.com"
 
@@ -64,6 +65,7 @@ async def create_or_get_user(
             role=UserRole.admin if email.lower().endswith(ADMIN_EMAIL_DOMAIN) else UserRole.student,
         )
         db.add(user)
+        await maybe_grant_python_promo(user, db)
         await db.commit()
         await db.refresh(user)
 
