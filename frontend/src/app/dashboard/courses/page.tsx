@@ -5,7 +5,7 @@ import { CourseIcon } from "@/components/CourseIcon";
 import { courses, tracks, getTotalLessons } from "@/data/courses";
 import type { Course } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
-import { useSubscription, PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS } from "@/store/subscription";
+import { useSubscription, PYTHON_PROMO_COURSE_IDS } from "@/store/subscription";
 import { usePromoStatus } from "@/lib/usePromoStatus";
 
 const difficultyBadge: Record<string, string> = {
@@ -29,9 +29,14 @@ const trackColorClass: Record<string, { ring: string; bg: string; text: string }
 
 function CourseCard({ course }: { course: Course }) {
   const { isEnrolled, getCourseProgress, getProgressPercent } = useCourseProgress();
+  // isProOrTeam/canAccessCourse are store *methods* that read `subscription`
+  // internally via get() — selecting `subscription` too forces a re-render
+  // when it changes (selecting the method alone would not).
+  useSubscription((s) => s.subscription);
   const canAccessCourse = useSubscription((s) => s.canAccessCourse);
   const isProOrTeam = useSubscription((s) => s.isProOrTeam);
   const pythonPromoGranted = useSubscription((s) => s.pythonPromoGranted);
+  const unlockedCourseIds = useSubscription((s) => s.unlockedCourseIds);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -43,8 +48,7 @@ function CourseCard({ course }: { course: Course }) {
   const pct = mounted ? getProgressPercent(course.id, totalLessons) : 0;
   const tc = trackColorClass[course.trackColor] ?? trackColorClass.sky;
   const isPromoCourse = PYTHON_PROMO_COURSE_IDS.includes(course.id);
-  const isProOnlyCourse = PYTHON_PRO_ONLY_COURSE_IDS.includes(course.id);
-  const isGatedCourse = isPromoCourse || isProOnlyCourse;
+  const isAdminUnlocked = unlockedCourseIds.includes(course.id);
   const accessible = !mounted || canAccessCourse(course.id);
 
   return (
@@ -71,15 +75,19 @@ function CourseCard({ course }: { course: Course }) {
             {course.difficulty}
           </span>
         </div>
-        {isGatedCourse && mounted && !isProOrTeam() && (
+        {mounted && !isProOrTeam() && (
           <span className={`inline-flex items-center gap-1 text-[10px] font-bold border rounded-full px-2 py-0.5 mb-2 w-fit ${
             accessible
               ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/25"
               : "text-amber-400 bg-amber-500/10 border-amber-500/25"
           }`}>
-            {isProOnlyCourse
+            {!accessible
               ? "🔒 Pro"
-              : accessible ? (pythonPromoGranted ? "🎁 Free — your spot" : "🎁 Free") : "🔒 Pro"}
+              : isAdminUnlocked
+              ? "🔓 Unlocked"
+              : isPromoCourse
+              ? (pythonPromoGranted ? "🎁 Free — your spot" : "🎁 Free")
+              : "🔓 Unlocked"}
           </span>
         )}
         <p className="text-white/40 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{course.subtitle}</p>

@@ -13,9 +13,10 @@ import { useSubscription, type Plan } from "@/store/subscription";
  */
 export async function syncPlanFromServer() {
   try {
-    const me = await api.get<{ plan: Plan; python_promo_granted: boolean }>("/users/me");
+    const me = await api.get<{ plan: Plan; python_promo_granted: boolean; unlocked_course_ids: string[] }>("/users/me");
     useSubscription.getState().setSubscription({ plan: me.plan, status: "active" });
     useSubscription.getState().setPythonPromoGranted(me.python_promo_granted);
+    useSubscription.getState().setUnlockedCourseIds(me.unlocked_course_ids ?? []);
   } catch {
     // Backend unreachable or session invalid — leave the local plan as-is.
   }

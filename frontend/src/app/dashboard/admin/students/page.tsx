@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { courses } from "@/data/courses";
 
 interface StudentListItem {
   id: number;
@@ -51,6 +52,13 @@ interface StudentCertificate {
   revoked: boolean;
 }
 
+interface StudentCourseUnlock {
+  course_id: string;
+  course_title: string;
+  granted_at: string;
+  expires_at: string | null;
+}
+
 interface StudentDetail {
   id: number;
   email: string;
@@ -65,6 +73,7 @@ interface StudentDetail {
   enrollments: StudentEnrollment[];
   attempts: StudentAttempt[];
   certificates: StudentCertificate[];
+  unlocked_courses: StudentCourseUnlock[];
 }
 
 function formatDate(iso: string | null) {
@@ -85,13 +94,46 @@ const PROFILE_FIELD_LABELS: { key: keyof StudentProfile; label: string }[] = [
 function StudentDetailDrawer({ userId, onClose }: { userId: number; onClose: () => void }) {
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState("");
+  const [unlockCourseId, setUnlockCourseId] = useState(courses[0]?.id ?? "");
+  const [unlockDays, setUnlockDays] = useState<string>("");
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api
       .get<StudentDetail>(`/admin/students/${userId}`)
       .then(setDetail)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, [userId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function grantUnlock() {
+    setBusy(true);
+    try {
+      await api.post(`/admin/students/${userId}/unlock-course`, {
+        course_id: unlockCourseId,
+        days: unlockDays ? Number(unlockDays) : null,
+      });
+      setUnlockDays("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unlock course");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeUnlock(courseId: string) {
+    setBusy(true);
+    try {
+      await api.post(`/admin/students/${userId}/lock-course`, { course_id: courseId });
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to revoke unlock");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
@@ -204,6 +246,67 @@ function StudentDetailDrawer({ userId, onClose }: { userId: number; onClose: () 
                   ))}
                 </div>
               )}
+            </section>
+
+            <section>
+              <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                Course Unlocks <span className="text-white/25 font-normal normal-case">(admin-granted, bypasses plan/promo)</span>
+              </h3>
+              {detail.unlocked_courses.length === 0 ? (
+                <p className="text-white/30 text-sm mb-3">No individual course unlocks.</p>
+              ) : (
+                <div className="space-y-2 mb-3">
+                  {detail.unlocked_courses.map((u) => (
+                    <div key={u.course_id} className="bg-white/[0.03] border border-white/8 rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-white text-sm font-medium">{u.course_title}</div>
+                        <div className="text-white/30 text-xs">
+                          {u.expires_at ? `Expires ${formatDate(u.expires_at)}` : "Permanent"}
+                        </div>
+                      </div>
+                      <button
+                        disabled={busy}
+                        onClick={() => revokeUnlock(u.course_id)}
+                        className="text-xs text-red-400 hover:text-red-300 border border-red-500/25 hover:border-red-500/40 rounded-lg px-2.5 py-1 transition-all disabled:opacity-40"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="bg-white/[0.03] border border-white/8 rounded-xl p-3 flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-[160px]">
+                  <label className="block text-[10px] text-white/30 uppercase tracking-wider mb-1">Course</label>
+                  <select
+                    value={unlockCourseId}
+                    onChange={(e) => setUnlockCourseId(e.target.value)}
+                    className="w-full bg-white/[0.04] border border-white/12 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none"
+                  >
+                    {courses.map((c) => (
+                      <option key={c.id} value={c.id} className="bg-[#0a1628]">{c.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-24">
+                  <label className="block text-[10px] text-white/30 uppercase tracking-wider mb-1">Days</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={unlockDays}
+                    onChange={(e) => setUnlockDays(e.target.value)}
+                    placeholder="Forever"
+                    className="w-full bg-white/[0.04] border border-white/12 rounded-lg px-2.5 py-1.5 text-white text-xs placeholder-white/25 focus:outline-none"
+                  />
+                </div>
+                <button
+                  disabled={busy}
+                  onClick={grantUnlock}
+                  className="text-xs font-semibold text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40"
+                >
+                  Unlock
+                </button>
+              </div>
             </section>
           </>
         )}

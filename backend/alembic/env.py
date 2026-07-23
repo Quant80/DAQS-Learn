@@ -15,6 +15,7 @@ from app.models.assessment_template import AssessmentTemplate  # noqa: F401
 from app.models.enrollment import Enrollment, LessonCompletion  # noqa: F401
 from app.models.assessment_attempt import AssessmentAttempt  # noqa: F401
 from app.models.certificate import Certificate  # noqa: F401
+from app.models.course_unlock import CourseUnlock  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -232,6 +232,13 @@ function LearnPageInner() {
 
   const { isEnrolled, enrol, isLessonComplete, completeLesson, setLastPosition, getProgressPercent } = useCourseProgress();
   const { hasCertificate, hydrate } = useCertificates();
+  // canAccessCourse is a store *method* that reads other state internally
+  // via get() — selecting the raw fields too forces a re-render once
+  // syncPlanFromServer() resolves after mount (selecting the method alone
+  // would not, since its reference never changes).
+  useSubscription((s) => s.subscription);
+  useSubscription((s) => s.pythonPromoGranted);
+  useSubscription((s) => s.unlockedCourseIds);
   const canAccessCourse = useSubscription((s) => s.canAccessCourse);
   const user = useAuthStore((s) => s.user);
   const enrolled = isEnrolled(id);

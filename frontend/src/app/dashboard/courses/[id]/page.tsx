@@ -1,12 +1,14 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CourseIcon } from "@/components/CourseIcon";
 import { getCourse, getCoursesByTrack, getPrerequisiteCourses, getTotalLessons } from "@/data/courses";
 import { useCourseProgress } from "@/store/courseProgress";
-import { useSubscription, PYTHON_PRO_ONLY_COURSE_IDS } from "@/store/subscription";
+import { useSubscription, PYTHON_PROMO_COURSE_IDS } from "@/store/subscription";
+import { useAuthStore } from "@/store/auth";
 import { usePromoStatus } from "@/lib/usePromoStatus";
+import { api } from "@/lib/api";
 
 const difficultyBadge: Record<string, string> = {
   beginner:     "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
@@ -34,6 +36,95 @@ const lessonTypeIcon: Record<string, string> = {
   quiz:     "✅",
 };
 
+function formatDate(iso: string | null) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function AdminGlobalUnlockPanel({ courseId }: { courseId: string }) {
+  const [until, setUntil] = useState<string | null | undefined>(undefined); // undefined = loading
+  const [days, setDays] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .get<{ id: string; globally_unlocked_until: string | null }[]>("/admin/courses")
+      .then((list) => setUntil(list.find((c) => c.id === courseId)?.globally_unlocked_until ?? null))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
+  }, [courseId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const isUnlocked = until != null && new Date(until) > new Date();
+
+  async function unlockGlobal() {
+    setBusy(true);
+    try {
+      await api.post(`/admin/courses/${courseId}/unlock-global`, { days: days ? Number(days) : null });
+      setDays("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unlock");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function lockGlobal() {
+    setBusy(true);
+    try {
+      await api.post(`/admin/courses/${courseId}/lock-global`, {});
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to lock");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="bg-violet-500/10 border border-violet-500/25 rounded-2xl p-4 flex flex-wrap items-center gap-3">
+      <span className="text-xs font-bold text-violet-300 uppercase tracking-wider shrink-0">Admin — Everyone</span>
+      {until === undefined ? (
+        <span className="text-white/40 text-xs">Loading…</span>
+      ) : isUnlocked ? (
+        <>
+          <span className="text-emerald-400 text-xs font-medium">🔓 Unlocked for everyone until {formatDate(until!)}</span>
+          <button
+            disabled={busy}
+            onClick={lockGlobal}
+            className="ml-auto text-xs text-red-400 hover:text-red-300 border border-red-500/25 hover:border-red-500/40 rounded-lg px-2.5 py-1 transition-all disabled:opacity-40"
+          >
+            Lock again
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="text-white/40 text-xs">Not unlocked for everyone</span>
+          <input
+            type="number"
+            min={1}
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            placeholder="Forever"
+            className="w-20 bg-white/[0.06] border border-white/15 rounded-lg px-2 py-1 text-white text-xs placeholder-white/25 focus:outline-none"
+          />
+          <span className="text-white/30 text-xs">days</span>
+          <button
+            disabled={busy}
+            onClick={unlockGlobal}
+            className="ml-auto text-xs font-semibold text-violet-300 bg-violet-500/15 hover:bg-violet-500/25 border border-violet-500/30 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40"
+          >
+            Unlock for everyone
+          </button>
+        </>
+      )}
+      {error && <p className="text-red-400 text-xs w-full">{error}</p>}
+    </div>
+  );
+}
+
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -42,13 +133,30 @@ export default function CourseDetailPage() {
   const [openModules, setOpenModules] = useState<Set<string>>(new Set([course?.modules[0]?.id ?? ""]));
 
   const { isEnrolled, enrol, getCourseProgress, getProgressPercent, isLessonComplete } = useCourseProgress();
+  // canAccessCourse/isProOrTeam are store *methods* that read other state
+  // internally via get() — selecting the method itself doesn't subscribe
+  // this component to that internal state, so the raw fields are also
+  // selected here purely to force a re-render when they change (e.g. once
+  // syncPlanFromServer() resolves after mount).
+  useSubscription((s) => s.subscription);
+  useSubscription((s) => s.pythonPromoGranted);
+  useSubscription((s) => s.unlockedCourseIds);
   const canAccessCourse = useSubscription((s) => s.canAccessCourse);
   const promoStatus = usePromoStatus();
-  const enrolled = isEnrolled(id);
-  const cp = getCourseProgress(id);
+  const isAdmin = useAuthStore((s) => s.user?.role === "admin");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Guard against SSR/client mismatch: the server always renders with
+  // empty/default persisted state (no localStorage), so anything read from
+  // useCourseProgress/useSubscription before the client has mounted and
+  // rehydrated must fall back to the same safe defaults, or React's
+  // hydration pass sees mismatched HTML and throws.
+  const enrolled = mounted && isEnrolled(id);
+  const cp = mounted ? getCourseProgress(id) : undefined;
   const totalLessons = course ? getTotalLessons(course) : 0;
-  const pct = getProgressPercent(id, totalLessons);
-  const accessible = course ? canAccessCourse(course.id) : true;
+  const pct = mounted ? getProgressPercent(id, totalLessons) : 0;
+  const accessible = !mounted || (course ? canAccessCourse(course.id) : true);
 
   if (!course) {
     return (
@@ -60,7 +168,7 @@ export default function CourseDetailPage() {
   }
 
   const tc = trackColorClass[course.trackColor] ?? trackColorClass.sky;
-  const prereqsMet = prereqs.every((p) => isEnrolled(p.id));
+  const prereqsMet = !mounted || prereqs.every((p) => isEnrolled(p.id));
 
   function toggleModule(mid: string) {
     setOpenModules((prev) => {
@@ -96,6 +204,8 @@ export default function CourseDetailPage() {
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl space-y-8">
+      {isAdmin && <AdminGlobalUnlockPanel courseId={course.id} />}
+
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-white/35">
         <Link href="/dashboard/courses" className="hover:text-white/60 transition-colors">Courses</Link>
@@ -153,7 +263,7 @@ export default function CourseDetailPage() {
         {!enrolled && !accessible ? (
           <div className="mt-6 bg-amber-500/10 border border-amber-500/25 rounded-xl p-5 text-center space-y-3">
             <div className="text-2xl">🔒</div>
-            {PYTHON_PRO_ONLY_COURSE_IDS.includes(id) ? (
+            {!PYTHON_PROMO_COURSE_IDS.includes(id) ? (
               <>
                 <p className="text-white font-semibold text-sm">This course requires a Pro plan</p>
                 <p className="text-white/45 text-xs max-w-sm mx-auto">
@@ -214,7 +324,7 @@ export default function CourseDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {prereqs.map((p) => {
               const ptc = trackColorClass[p.trackColor] ?? trackColorClass.sky;
-              const done = isEnrolled(p.id) && getProgressPercent(p.id, getTotalLessons(p)) === 100;
+              const done = mounted && isEnrolled(p.id) && getProgressPercent(p.id, getTotalLessons(p)) === 100;
               return (
                 <Link key={p.id} href={`/dashboard/courses/${p.id}`}
                   className={`flex items-center gap-3 bg-white/[0.03] border ${done ? "border-emerald-500/30" : ptc.ring} hover:bg-white/[0.06] rounded-xl p-4 transition-all`}>

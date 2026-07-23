@@ -9,10 +9,6 @@ PYTHON_PROMO_CAP = 100
 # in this codebase.
 PYTHON_PROMO_COURSE_IDS = {"python-fundamentals", "python-intermediate"}
 
-# Pro/Team plan only — no promo path. Python Advanced was never part of the
-# "first 100 free" offer; it's a paid-tier course.
-PYTHON_PRO_ONLY_COURSE_IDS = {"python-advanced"}
-
 
 async def maybe_grant_python_promo(user: User, db: AsyncSession) -> None:
     """Called once, at account creation, for new student sign-ups only.

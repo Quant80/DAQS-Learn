@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userScopedStorage } from "@/lib/userScopedStorage";
-import { PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS } from "@/lib/pythonCourseTiers";
+import { PYTHON_PROMO_COURSE_IDS } from "@/lib/pythonCourseTiers";
 
-export { PYTHON_PROMO_COURSE_IDS, PYTHON_PRO_ONLY_COURSE_IDS };
+export { PYTHON_PROMO_COURSE_IDS };
 
 export type Plan = "free" | "pro" | "team";
 export type PaymentProvider = "payfast" | "stripe" | "ozow";
@@ -27,12 +27,12 @@ export const PLANS = {
     priceUSD: 0,
     period: "forever",
     features: [
-      "3 courses",
+      "Python Beginner & Intermediate",
       "50 AI Tutor messages/month",
       "Basic assessments",
       "Community support",
     ],
-    limits: { courses: 3, tutorMessages: 50 },
+    limits: { courses: 2, tutorMessages: 50 },
     badge: "",
     cta: "Current plan",
   },
@@ -80,8 +80,10 @@ export const PLANS = {
 interface Store {
   subscription: Subscription;
   pythonPromoGranted: boolean;
+  unlockedCourseIds: string[];
   setSubscription(sub: Subscription): void;
   setPythonPromoGranted(granted: boolean): void;
+  setUnlockedCourseIds(ids: string[]): void;
   activatePro(provider: PaymentProvider, ref: string, months?: number): void;
   isProOrTeam(): boolean;
   canAccessCourse(courseId: string): boolean;
@@ -92,6 +94,7 @@ export const useSubscription = create<Store>()(
     (set, get) => ({
       subscription: { plan: "free", status: "active" },
       pythonPromoGranted: false,
+      unlockedCourseIds: [],
 
       setSubscription(sub) {
         set({ subscription: sub });
@@ -99,6 +102,10 @@ export const useSubscription = create<Store>()(
 
       setPythonPromoGranted(granted) {
         set({ pythonPromoGranted: granted });
+      },
+
+      setUnlockedCourseIds(ids) {
+        set({ unlockedCourseIds: ids });
       },
 
       activatePro(provider, ref, months = 1) {
@@ -123,11 +130,15 @@ export const useSubscription = create<Store>()(
         return true;
       },
 
+      // Access model: an admin-granted unlock (personal or global) always
+      // wins. Python Beginner/Intermediate are free for the first 100
+      // sign-ups (or with Pro/Team). Every other course requires Pro/Team.
       canAccessCourse(courseId) {
-        if (PYTHON_PRO_ONLY_COURSE_IDS.includes(courseId)) return get().isProOrTeam();
-        if (!PYTHON_PROMO_COURSE_IDS.includes(courseId)) return true;
-        if (get().isProOrTeam()) return true;
-        return get().pythonPromoGranted;
+        if (get().unlockedCourseIds.includes(courseId)) return true;
+        if (PYTHON_PROMO_COURSE_IDS.includes(courseId)) {
+          return get().isProOrTeam() || get().pythonPromoGranted;
+        }
+        return get().isProOrTeam();
       },
     }),
     { name: "daqs-subscription", storage: userScopedStorage() }

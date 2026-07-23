@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.user import User, Plan, PlanSource
 from app.models.access_request import AccessRequest, AccessRequestStatus
 from app.models.course import Course
+from app.models.course_unlock import CourseUnlock
 from app.models.assessment_template import AssessmentTemplate
 from app.models.enrollment import Enrollment
 from app.models.assessment_attempt import AssessmentAttempt
@@ -397,6 +398,13 @@ class StudentCertificate(BaseModel):
     revoked: bool
 
 
+class StudentCourseUnlock(BaseModel):
+    course_id: str
+    course_title: str
+    granted_at: datetime
+    expires_at: datetime | None
+
+
 class AdminStudentDetail(BaseModel):
     id: int
     email: str
@@ -411,11 +419,11 @@ class AdminStudentDetail(BaseModel):
     enrollments: list[StudentEnrollment]
     attempts: list[StudentAttempt]
     certificates: list[StudentCertificate]
+    unlocked_courses: list[StudentCourseUnlock]
 
 
-@router.get("/students/{user_id}", response_model=AdminStudentDetail)
-async def get_student_detail(user_id: int, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
-    user = await _get_user_or_404(user_id, db)
+async def _build_student_detail(user: User, db: AsyncSession) -> AdminStudentDetail:
+    user_id = user.id
 
     enrollment_rows = (await db.execute(
         select(Enrollment, Course.title)
@@ -434,6 +442,13 @@ async def get_student_detail(user_id: int, admin: User = Depends(get_current_adm
     certificates = (await db.execute(
         select(Certificate).where(Certificate.user_id == user_id).order_by(Certificate.issued_at.desc())
     )).scalars().all()
+
+    unlock_rows = (await db.execute(
+        select(CourseUnlock, Course.title)
+        .join(Course, Course.id == CourseUnlock.course_id)
+        .where(CourseUnlock.user_id == user_id)
+        .order_by(CourseUnlock.granted_at.desc())
+    )).all()
 
     return AdminStudentDetail(
         id=user.id, email=user.email, full_name=user.full_name, role=user.role.value,
@@ -465,4 +480,126 @@ async def get_student_detail(user_id: int, admin: User = Depends(get_current_adm
             )
             for c in certificates
         ],
+        unlocked_courses=[
+            StudentCourseUnlock(course_id=u.course_id, course_title=title, granted_at=u.granted_at, expires_at=u.expires_at)
+            for u, title in unlock_rows
+        ],
     )
+
+
+@router.get("/students/{user_id}", response_model=AdminStudentDetail)
+async def get_student_detail(user_id: int, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    user = await _get_user_or_404(user_id, db)
+    return await _build_student_detail(user, db)
+
+
+class UnlockCourseRequest(BaseModel):
+    course_id: str
+    days: int | None = None  # None = permanent
+
+
+@router.post("/students/{user_id}/unlock-course", response_model=AdminStudentDetail)
+async def unlock_course_for_student(
+    user_id: int,
+    body: UnlockCourseRequest,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user_or_404(user_id, db)
+    await _get_or_stub_course_ref(body.course_id, db)
+    expires_at = datetime.utcnow() + timedelta(days=body.days) if body.days else None
+
+    result = await db.execute(
+        select(CourseUnlock).where(CourseUnlock.user_id == user_id, CourseUnlock.course_id == body.course_id)
+    )
+    unlock = result.scalar_one_or_none()
+    if unlock:
+        unlock.expires_at = expires_at
+        unlock.granted_by_admin_id = admin.id
+        unlock.granted_at = datetime.utcnow()
+    else:
+        db.add(CourseUnlock(user_id=user_id, course_id=body.course_id, granted_by_admin_id=admin.id, expires_at=expires_at))
+
+    await db.commit()
+    return await _build_student_detail(user, db)
+
+
+class LockCourseRequest(BaseModel):
+    course_id: str
+
+
+@router.post("/students/{user_id}/lock-course", response_model=AdminStudentDetail)
+async def lock_course_for_student(
+    user_id: int,
+    body: LockCourseRequest,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await _get_user_or_404(user_id, db)
+    result = await db.execute(
+        select(CourseUnlock).where(CourseUnlock.user_id == user_id, CourseUnlock.course_id == body.course_id)
+    )
+    unlock = result.scalar_one_or_none()
+    if unlock:
+        await db.delete(unlock)
+        await db.commit()
+    return await _build_student_detail(user, db)
+
+
+# ── Global (everyone) course unlocks ────────────────────────────────────
+
+async def _get_or_stub_course_ref(course_id: str, db: AsyncSession) -> Course:
+    result = await db.execute(select(Course).where(Course.id == course_id))
+    course = result.scalar_one_or_none()
+    if course is None:
+        course = Course(id=course_id, title=course_id, track="", difficulty="", total_lessons=0, is_active=False)
+        db.add(course)
+        await db.flush()
+    return course
+
+
+class AdminCourseResponse(BaseModel):
+    id: str
+    title: str
+    track: str
+    difficulty: str
+    is_active: bool
+    globally_unlocked_until: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/courses", response_model=list[AdminCourseResponse])
+async def list_courses(admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Course).order_by(Course.title))
+    return result.scalars().all()
+
+
+class GlobalUnlockRequest(BaseModel):
+    days: int | None = None  # None = effectively permanent
+
+
+@router.post("/courses/{course_id}/unlock-global", response_model=AdminCourseResponse)
+async def unlock_course_globally(
+    course_id: str,
+    body: GlobalUnlockRequest,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    course = await _get_or_stub_course_ref(course_id, db)
+    course.globally_unlocked_until = (
+        datetime.utcnow() + timedelta(days=body.days) if body.days else datetime(2099, 1, 1)
+    )
+    await db.commit()
+    await db.refresh(course)
+    return course
+
+
+@router.post("/courses/{course_id}/lock-global", response_model=AdminCourseResponse)
+async def lock_course_globally(course_id: str, admin: User = Depends(get_current_admin), db: AsyncSession = Depends(get_db)):
+    course = await _get_or_stub_course_ref(course_id, db)
+    course.globally_unlocked_until = None
+    await db.commit()
+    await db.refresh(course)
+    return course

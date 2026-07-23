@@ -61,13 +61,17 @@ export async function POST(req: NextRequest) {
   let plan = "free";
   let planExpiresAt: string | null = null;
   let pythonPromoGranted = false;
+  let unlockedCourseIds: string[] = [];
   try {
     const meRes = await fetch(`${API_BASE}/users/me`, { headers: { Authorization: authHeader } });
     if (!meRes.ok) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    const me = await meRes.json() as { plan: string; plan_expires_at: string | null; python_promo_granted: boolean };
+    const me = await meRes.json() as {
+      plan: string; plan_expires_at: string | null; python_promo_granted: boolean; unlocked_course_ids: string[];
+    };
     plan = me.plan;
     planExpiresAt = me.plan_expires_at;
     pythonPromoGranted = me.python_promo_granted;
+    unlockedCourseIds = me.unlocked_course_ids ?? [];
   } catch {
     // Backend unreachable — fail closed on gated content (see below), but
     // still let the student use their workspace for whatever's already free.
@@ -104,7 +108,7 @@ export async function POST(req: NextRequest) {
       if (!courseIds || courseIds.size === 0) return true; // unmapped files stay free (no known gate to apply)
       // Accessible if entitled to ANY course that references this file —
       // e.g. 07_functions.ipynb is used by both Beginner and Advanced.
-      return [...courseIds].some((courseId) => canAccessPythonCourse(courseId, { plan, planExpiresAt, pythonPromoGranted }));
+      return [...courseIds].some((courseId) => canAccessPythonCourse(courseId, { plan, planExpiresAt, pythonPromoGranted, unlockedCourseIds }));
     });
 
     await Promise.all(

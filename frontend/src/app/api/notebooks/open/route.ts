@@ -50,16 +50,20 @@ export async function POST(req: NextRequest) {
       let plan = "free";
       let planExpiresAt: string | null = null;
       let pythonPromoGranted = false;
+      let unlockedCourseIds: string[] = [];
       try {
         const meRes = await fetch(`${API_BASE}/users/me`, { headers: { Authorization: authHeader } });
         if (!meRes.ok) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-        const me = await meRes.json() as { plan: string; plan_expires_at: string | null; python_promo_granted: boolean };
+        const me = await meRes.json() as {
+          plan: string; plan_expires_at: string | null; python_promo_granted: boolean; unlocked_course_ids: string[];
+        };
         plan = me.plan; planExpiresAt = me.plan_expires_at; pythonPromoGranted = me.python_promo_granted;
+        unlockedCourseIds = me.unlocked_course_ids ?? [];
       } catch {
         return NextResponse.json({ error: "Could not verify access — try again shortly" }, { status: 503 });
       }
       const allowed = gatingCourseIds.some((courseId) =>
-        canAccessPythonCourse(courseId, { plan, planExpiresAt, pythonPromoGranted })
+        canAccessPythonCourse(courseId, { plan, planExpiresAt, pythonPromoGranted, unlockedCourseIds })
       );
       if (!allowed) {
         return NextResponse.json({ error: "This notebook requires a Pro plan or an active promo spot" }, { status: 403 });

@@ -19,4 +19,12 @@ class Course(Base):
     estimated_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_lessons: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Admin override — unlocks this course for every student regardless of
+    # plan/promo, until this timestamp (NULL = not globally unlocked).
+    # Time-limited so a promotional unlock doesn't have to be remembered
+    # and manually turned back off. Never touched by the catalog sync (see
+    # admin.py), so it survives re-syncing the reference table.
+    globally_unlocked_until: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+
     synced_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

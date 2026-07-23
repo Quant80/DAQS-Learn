@@ -4,13 +4,17 @@ from app.db.session import get_db
 from app.models.user import Gender, RaceCategory
 from app.schemas.user import UserResponse, ProfileUpdateRequest
 from app.services.auth_service import get_current_user
+from app.services.course_access import get_unlocked_course_ids
 
 router = APIRouter()
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user=Depends(get_current_user)):
-    return current_user
+async def get_me(current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    unlocked = await get_unlocked_course_ids(current_user.id, db)
+    data = UserResponse.model_validate(current_user)
+    data.unlocked_course_ids = sorted(unlocked)
+    return data
 
 
 @router.patch("/me/profile", response_model=UserResponse)
@@ -38,4 +42,7 @@ async def update_my_profile(
 
     await db.commit()
     await db.refresh(current_user)
-    return current_user
+    unlocked = await get_unlocked_course_ids(current_user.id, db)
+    data = UserResponse.model_validate(current_user)
+    data.unlocked_course_ids = sorted(unlocked)
+    return data

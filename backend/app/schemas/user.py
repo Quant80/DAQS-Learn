@@ -20,6 +20,9 @@ class UserResponse(BaseModel):
     is_locked: bool
     last_login_at: datetime | None
     python_promo_granted: bool
+    # Admin-granted per-course/global unlocks — not a User column, filled
+    # in by the endpoint after loading from course_access.get_unlocked_course_ids.
+    unlocked_course_ids: list[str] = []
 
     # Profile — all optional, self-reported
     first_name: str | None
