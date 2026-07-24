@@ -101,16 +101,15 @@ export const AI_MODELS: AIModel[] = [
     name: "Qwen 3.6 27B",
     provider: "groq",
     contextWindow: "128K",
-    description: "Open-weight reasoning model — step-by-step thinking. This app's long system prompt exceeds Groq's free-tier token/minute limit for this model — requires a paid Groq tier to work.",
-    badge: "Needs paid tier",
+    description: "Open-weight reasoning model — step-by-step thinking",
+    badge: "Reasoning",
   },
   {
     id: "llama-3.1-8b-instant",
     name: "Llama 3.1 8B",
     provider: "groq",
     contextWindow: "128K",
-    description: "Meta's lightweight open-weight model — very fast responses. This app's long system prompt exceeds Groq's free-tier token/minute limit for this model — requires a paid Groq tier to work.",
-    badge: "Needs paid tier",
+    description: "Meta's lightweight open-weight model — very fast responses",
   },
   // Ollama (local dev only — requires `ollama serve` running on your own machine)
   {
@@ -347,7 +346,11 @@ export async function streamChat(
         try {
           const stream = await client.chat.completions.create({
             model: modelId,
-            max_tokens: 8192,
+            // Groq's rate limiter reserves this whole budget against TPM up front,
+            // not just what's actually generated — keep it close to real usage
+            // (~600-2500 tokens for a Tutor response) instead of the 8192 other
+            // providers use, or every request eats ~3x more quota than it needs.
+            max_tokens: 3000,
             stream: true,
             messages: [
               { role: "system", content: systemPrompt },
