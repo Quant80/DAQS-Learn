@@ -52,7 +52,11 @@ type GraphSpec = {
   axisOfSymmetry?: number;
 };
 
-const PROVIDERS: AIProvider[] = ["claude", "openai", "deepseek", "gemini", "groq"];
+// Ollama only works when the app is running on your own machine (Vercel
+// production can't reach your localhost), so it's excluded from prod builds.
+const PROVIDERS: AIProvider[] = process.env.NODE_ENV === "development"
+  ? ["claude", "openai", "deepseek", "gemini", "groq", "ollama"]
+  : ["claude", "openai", "deepseek", "gemini", "groq"];
 
 const STARTERS = [
   "Solve x² - 4x + 4 = 0 and plot the graph",

@@ -9,7 +9,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ─── Provider types ─────────────────────────────────────────────────────────
 
-export type AIProvider = "claude" | "openai" | "deepseek" | "gemini" | "groq";
+export type AIProvider = "claude" | "openai" | "deepseek" | "gemini" | "groq" | "ollama";
 
 export interface AIModel {
   id: string;
@@ -111,6 +111,39 @@ export const AI_MODELS: AIModel[] = [
     contextWindow: "8K",
     description: "Google's lightweight open-weight model — very fast responses",
   },
+  // Ollama (local dev only — requires `ollama serve` running on your own machine)
+  {
+    id: "deepseek-r1:latest",
+    name: "DeepSeek R1 (local)",
+    provider: "ollama",
+    contextWindow: "32K",
+    description: "Runs on your machine via Ollama — local dev only",
+    badge: "Local",
+  },
+  {
+    id: "llama3.2:latest",
+    name: "Llama 3.2 (local)",
+    provider: "ollama",
+    contextWindow: "128K",
+    description: "Runs on your machine via Ollama — local dev only",
+    badge: "Local",
+  },
+  {
+    id: "mistral:latest",
+    name: "Mistral (local)",
+    provider: "ollama",
+    contextWindow: "32K",
+    description: "Runs on your machine via Ollama — local dev only",
+    badge: "Local",
+  },
+  {
+    id: "llama2:latest",
+    name: "Llama 2 (local)",
+    provider: "ollama",
+    contextWindow: "4K",
+    description: "Runs on your machine via Ollama — local dev only",
+    badge: "Local",
+  },
   // Gemini
   {
     id: "gemini-2.0-flash",
@@ -143,6 +176,7 @@ export const PROVIDER_META: Record<AIProvider, { label: string; icon: string; co
   deepseek: { label: "DeepSeek", icon: "🔵", color: "text-sky-400",     bgColor: "bg-sky-500/10",     borderColor: "border-sky-500/30"     },
   gemini:   { label: "Gemini",   icon: "🔷", color: "text-blue-400",    bgColor: "bg-blue-500/10",    borderColor: "border-blue-500/30"    },
   groq:     { label: "Groq",     icon: "⚡", color: "text-purple-400",  bgColor: "bg-purple-500/10",  borderColor: "border-purple-500/30"  },
+  ollama:   { label: "Ollama",   icon: "🦙", color: "text-emerald-400", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/30" },
 };
 
 export function getModelsByProvider(provider: AIProvider): AIModel[] {
@@ -286,6 +320,35 @@ export async function streamChat(
     });
   }
 
+  if (provider === "ollama") {
+    const client = new OpenAI({
+      apiKey: "ollama", // unused, but required by the SDK constructor
+      baseURL: `${process.env.OLLAMA_BASE_URL ?? "http://localhost:11434"}/v1`,
+    });
+    return new ReadableStream({
+      async start(controller) {
+        try {
+          const stream = await client.chat.completions.create({
+            model: modelId,
+            max_tokens: 8192,
+            stream: true,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...messages,
+            ],
+          });
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content;
+            if (text) controller.enqueue(encoder.encode(text));
+          }
+          controller.close();
+        } catch (err) {
+          streamError(controller, encoder, err);
+        }
+      },
+    });
+  }
+
   if (provider === "gemini") {
     // Try primary key, fall back to secondary if quota/rate-limit hit
     const geminiKeys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean) as string[];
@@ -392,6 +455,19 @@ export async function complete(
     return response.choices[0]?.message?.content ?? "";
   }
 
+  if (provider === "ollama") {
+    const client = new OpenAI({
+      apiKey: "ollama",
+      baseURL: `${process.env.OLLAMA_BASE_URL ?? "http://localhost:11434"}/v1`,
+    });
+    const response = await client.chat.completions.create({
+      model: modelId,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return response.choices[0]?.message?.content ?? "";
+  }
+
   throw new Error(`Unsupported provider: ${provider}`);
 }
 
@@ -404,5 +480,6 @@ export function hasProviderKey(provider: AIProvider): boolean {
     case "deepseek": return !!process.env.DEEPSEEK_API_KEY;
     case "gemini":   return !!(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_2);
     case "groq":     return !!process.env.GROQ_API_KEY;
+    case "ollama":   return true; // no key needed — connectivity failure surfaces as a normal stream error
   }
 }
