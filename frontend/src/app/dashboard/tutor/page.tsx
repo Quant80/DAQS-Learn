@@ -425,11 +425,34 @@ function ShareToolbar({ getElement, question }: { getElement: () => HTMLElement 
   );
 }
 
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({
+  msg,
+  onEdit,
+  onRegenerate,
+  disabled,
+}: {
+  msg: Message;
+  onEdit?: (newContent: string) => void;
+  onRegenerate?: () => void;
+  disabled?: boolean;
+}) {
   const isUser = msg.role === "user";
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(msg.content);
 
   if (msg.type === "question_prompt" && msg.questionMeta) {
     return <QuestionCard meta={msg.questionMeta} />;
+  }
+
+  function startEdit() {
+    setDraft(msg.content);
+    setEditing(true);
+  }
+
+  function saveEdit() {
+    const trimmed = draft.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== msg.content) onEdit?.(trimmed);
   }
 
   return (
@@ -441,13 +464,40 @@ function MessageBubble({ msg }: { msg: Message }) {
       }`}>
         {isUser ? "U" : "AI"}
       </div>
-      <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+      <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} max-w-[85%] min-w-0`}>
+      <div className={`w-full rounded-2xl px-4 py-3 text-sm leading-relaxed ${
         isUser
           ? "bg-sky-500/15 border border-sky-500/20 text-white rounded-tr-sm"
           : "bg-white/[0.04] border border-white/10 text-white/90 rounded-tl-sm"
       }`}>
         {isUser ? (
-          <p className="whitespace-pre-wrap">{msg.content}</p>
+          editing ? (
+            <div className="space-y-2">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={Math.min(8, Math.max(2, draft.split("\n").length))}
+                autoFocus
+                className="w-full bg-black/20 border border-white/15 rounded-lg px-2.5 py-1.5 text-sm text-white resize-none focus:outline-none focus:border-sky-400/50"
+              />
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="text-[10px] text-white/40 hover:text-white/70 px-2 py-0.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveEdit}
+                  className="text-[10px] font-semibold text-sky-300 hover:text-sky-200 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 rounded px-2.5 py-0.5"
+                >
+                  Save &amp; Resend
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="whitespace-pre-wrap">{msg.content}</p>
+          )
         ) : (
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -546,6 +596,30 @@ function MessageBubble({ msg }: { msg: Message }) {
             {normaliseMath(msg.content)}
           </ReactMarkdown>
         )}
+      </div>
+      {!editing && (
+        <div className="flex items-center gap-2 mt-1 px-1">
+          {isUser && onEdit && (
+            <button
+              onClick={startEdit}
+              disabled={disabled}
+              className="text-[10px] text-white/30 hover:text-white/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ✏️ Edit
+            </button>
+          )}
+          {!isUser && msg.content && <CopyButton text={msg.content} />}
+          {!isUser && onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              disabled={disabled}
+              className="text-[10px] text-white/30 hover:text-white/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ↻ Regenerate
+            </button>
+          )}
+        </div>
+      )}
       </div>
     </div>
   );
@@ -920,23 +994,10 @@ export default function TutorPage() {
     setTimeout(() => setNoteSaved(false), 2500);
   }
 
-  async function sendMessage(content: string, questionMeta?: QuestionCardMeta) {
-    if (!content.trim() || streaming || locked) return;
+  /** Posts the given conversation-so-far to the Tutor API and streams the reply into state. */
+  async function runTurn(contextMessages: Message[]) {
     setError("");
-
-    const userMsg: Message = {
-      role: "user",
-      content: content.trim(),
-      ...(questionMeta ? { type: "question_prompt" as const, questionMeta } : {}),
-    };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    recordTutorMessage(content.trim());
-    setInput("");
     setStreaming(true);
-
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-
     try {
       const res = await fetch("/api/tutor/chat", {
         method: "POST",
@@ -945,7 +1006,7 @@ export default function TutorPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: contextMessages.map((m) => ({ role: m.role, content: m.content })),
           provider,
           modelId,
         }),
@@ -987,6 +1048,46 @@ export default function TutorPage() {
     } finally {
       setStreaming(false);
     }
+  }
+
+  async function sendMessage(content: string, questionMeta?: QuestionCardMeta) {
+    if (!content.trim() || streaming || locked) return;
+
+    const userMsg: Message = {
+      role: "user",
+      content: content.trim(),
+      ...(questionMeta ? { type: "question_prompt" as const, questionMeta } : {}),
+    };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    recordTutorMessage(content.trim());
+    setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+    await runTurn(newMessages);
+  }
+
+  /** Edits a past user message in place, discards everything after it, and gets a fresh reply. */
+  async function editUserMessage(index: number, newContent: string) {
+    if (streaming || locked) return;
+    const trimmed = newContent.trim();
+    if (!trimmed) return;
+
+    const context: Message[] = [...messages.slice(0, index), { role: "user", content: trimmed }];
+    setMessages(context);
+    recordTutorMessage(trimmed);
+
+    await runTurn(context);
+  }
+
+  /** Re-asks for a fresh reply to the same conversation-so-far, discarding the old assistant answer. */
+  async function regenerateMessage(assistantIndex: number) {
+    if (streaming || locked) return;
+    const context = messages.slice(0, assistantIndex);
+    if (context.length === 0 || context[context.length - 1].role !== "user") return;
+
+    setMessages(context);
+    await runTurn(context);
   }
 
   async function requestAccess() {
@@ -1127,7 +1228,16 @@ export default function TutorPage() {
           <>
             {groupMessages(messages).map((group) => {
               if (group.kind === "single") {
-                return <MessageBubble key={group.idx} msg={group.msg} />;
+                const m = group.msg;
+                return (
+                  <MessageBubble
+                    key={group.idx}
+                    msg={m}
+                    disabled={streaming}
+                    onEdit={m.role === "user" ? (newContent) => editUserMessage(group.idx, newContent) : undefined}
+                    onRegenerate={m.role === "assistant" ? () => regenerateMessage(group.idx) : undefined}
+                  />
+                );
               }
               const { user, assistant, assistantIdx } = group;
               return (
@@ -1137,8 +1247,16 @@ export default function TutorPage() {
                     className="space-y-3 p-4 rounded-2xl border border-white/5"
                     style={{ background: "#0a1120" }}
                   >
-                    <MessageBubble msg={user} />
-                    <MessageBubble msg={assistant} />
+                    <MessageBubble
+                      msg={user}
+                      disabled={streaming}
+                      onEdit={(newContent) => editUserMessage(assistantIdx - 1, newContent)}
+                    />
+                    <MessageBubble
+                      msg={assistant}
+                      disabled={streaming}
+                      onRegenerate={() => regenerateMessage(assistantIdx)}
+                    />
                     <div className="flex items-center gap-2 pt-2 border-t border-white/5">
                       <div className="w-4 h-4 rounded bg-violet-500/30 flex items-center justify-center text-[9px] shrink-0">🤖</div>
                       <span className="text-[10px] text-white/25 font-medium">DAQS AI Tutor · learn.daqstech.com</span>
