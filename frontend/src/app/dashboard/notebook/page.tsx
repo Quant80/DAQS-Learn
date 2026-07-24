@@ -284,7 +284,16 @@ function CourseLibraryPane() {
   useSubscription((s) => s.pythonPromoGranted);
   useSubscription((s) => s.unlockedCourseIds);
 
+  // SSR always renders with the store's default (unhydrated) state, but the
+  // client's first paint may already have real localStorage data — evaluating
+  // access before mount causes a hydration mismatch. Default to "unlocked"
+  // pre-mount (same pattern as dashboard/courses/page.tsx) so both passes agree,
+  // then re-check for real once mounted.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   function hasAccess(nb: typeof COURSE_NOTEBOOKS[0]): boolean {
+    if (!mounted) return true;
     const gatingCourseIds = courseIdsForFile(nb.file);
     return gatingCourseIds.length === 0 || gatingCourseIds.some((id) => canAccessCourse(id));
   }
