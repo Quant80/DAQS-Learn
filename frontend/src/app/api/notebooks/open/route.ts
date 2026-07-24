@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { userWorkspaceDir, sanitizeUserKey } from "@/lib/notebookPaths";
+import { userWorkspaceDir } from "@/lib/notebookPaths";
 import { courses } from "@/data/courses";
 import { canAccessPythonCourse } from "@/lib/pythonCourseTiers";
 
@@ -131,13 +131,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Return the direct URL to open the notebook in JupyterLab.
-  // Named per-user workspace — without this, every student shares the single
-  // "default" JupyterLab workspace (open tabs, panel sizes, scroll position),
-  // so one person's layout/scroll state bleeds into everyone else's next
-  // visit (this is what made notebook 00's cover cell look "cut off": an
-  // earlier session had scrolled past it and that state was global).
-  const workspaceName = sanitizeUserKey(email);
-  const labUrl = `${JUPYTER_URL}/lab/workspaces/${workspaceName}/tree/${destPath}?token=${JUPYTER_TOKEN}`;
+  // Return the direct URL to open the notebook in JupyterLab
+  const labUrl = `${JUPYTER_URL}/lab/tree/${destPath}?token=${JUPYTER_TOKEN}`;
   return NextResponse.json({ url: labUrl });
 }
