@@ -101,15 +101,16 @@ export const AI_MODELS: AIModel[] = [
     name: "Qwen 3.6 27B",
     provider: "groq",
     contextWindow: "128K",
-    description: "Open-weight reasoning model — step-by-step thinking",
-    badge: "Reasoning",
+    description: "Open-weight reasoning model — step-by-step thinking. This app's long system prompt exceeds Groq's free-tier token/minute limit for this model — requires a paid Groq tier to work.",
+    badge: "Needs paid tier",
   },
   {
     id: "llama-3.1-8b-instant",
     name: "Llama 3.1 8B",
     provider: "groq",
     contextWindow: "128K",
-    description: "Meta's lightweight open-weight model — very fast responses",
+    description: "Meta's lightweight open-weight model — very fast responses. This app's long system prompt exceeds Groq's free-tier token/minute limit for this model — requires a paid Groq tier to work.",
+    badge: "Needs paid tier",
   },
   // Ollama (local dev only — requires `ollama serve` running on your own machine)
   {
