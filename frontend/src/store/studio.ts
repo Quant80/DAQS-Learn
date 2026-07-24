@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { userScopedStorage } from "@/lib/userScopedStorage";
 
 export type StudioLanguage = "python" | "javascript" | "html" | "css" | "typescript" | "markdown" | "json";
 
@@ -14,7 +13,10 @@ export interface StudioFile {
 export interface StudioProject {
   id: string;
   name: string;
+  /** File names double as paths — "utils/helpers.py" lives in a "utils" folder. */
   files: StudioFile[];
+  /** Explicitly-created folder paths, including ones with no files in them yet. */
+  folders: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -32,7 +34,7 @@ function makeId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-const TEMPLATES: Record<string, Omit<StudioProject, "id" | "createdAt" | "updatedAt">> = {
+const TEMPLATES: Record<string, Omit<StudioProject, "id" | "createdAt" | "updatedAt" | "folders">> = {
   "python-ds": {
     name: "Python Data Science",
     files: [
@@ -190,6 +192,10 @@ interface StudioStore {
   renameFile(projectId: string, fileId: string, name: string): void;
   updateFileContent(projectId: string, fileId: string, content: string): void;
 
+  createFolder(projectId: string, path: string): void;
+  deleteFolder(projectId: string, path: string): void;
+  renameFolder(projectId: string, oldPath: string, newPath: string): void;
+
   openFile(fileId: string): void;
   closeFile(fileId: string): void;
   setActiveFile(fileId: string): void;
@@ -212,6 +218,7 @@ export const useStudio = create<StudioStore>()(
           id: makeId(),
           name: tmpl.name,
           files: tmpl.files.map((f) => ({ ...f, id: makeId() })),
+          folders: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -284,6 +291,57 @@ export const useStudio = create<StudioStore>()(
         }));
       },
 
+      createFolder(projectId, path) {
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId && !(p.folders ?? []).includes(path)
+              ? { ...p, folders: [...(p.folders ?? []), path], updatedAt: new Date().toISOString() }
+              : p
+          ),
+        }));
+      },
+
+      deleteFolder(projectId, path) {
+        set((s) => {
+          const project = s.projects.find((p) => p.id === projectId);
+          if (!project) return s;
+          const removedFileIds = new Set(
+            project.files.filter((f) => f.name === path || f.name.startsWith(path + "/")).map((f) => f.id)
+          );
+          const newOpen = s.openFileIds.filter((id) => !removedFileIds.has(id));
+          return {
+            projects: s.projects.map((p) =>
+              p.id === projectId
+                ? {
+                    ...p,
+                    files: p.files.filter((f) => !removedFileIds.has(f.id)),
+                    folders: (p.folders ?? []).filter((f) => f !== path && !f.startsWith(path + "/")),
+                    updatedAt: new Date().toISOString(),
+                  }
+                : p
+            ),
+            openFileIds: newOpen,
+            activeFileId: removedFileIds.has(s.activeFileId ?? "") ? (newOpen[newOpen.length - 1] ?? null) : s.activeFileId,
+          };
+        });
+      },
+
+      renameFolder(projectId, oldPath, newPath) {
+        const remap = (name: string) => (name === oldPath ? newPath : name.startsWith(oldPath + "/") ? newPath + name.slice(oldPath.length) : name);
+        set((s) => ({
+          projects: s.projects.map((p) =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  files: p.files.map((f) => (f.name === oldPath || f.name.startsWith(oldPath + "/")) ? { ...f, name: remap(f.name) } : f),
+                  folders: (p.folders ?? []).map(remap),
+                  updatedAt: new Date().toISOString(),
+                }
+              : p
+          ),
+        }));
+      },
+
       updateFileContent(projectId, fileId, content) {
         set((s) => ({
           projects: s.projects.map((p) =>
@@ -326,7 +384,7 @@ export const useStudio = create<StudioStore>()(
         return project.files.find((f) => f.id === get().activeFileId) ?? null;
       },
     }),
-    { name: "daqs-studio", storage: userScopedStorage() }
+    { name: "daqs-studio" }
   )
 );
 

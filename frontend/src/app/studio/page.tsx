@@ -85,10 +85,7 @@ const LANG_ICON: Record<string, string> = {
 };
 function FileIcon({ lang }: { lang: string }) {
   const icon = LANG_ICON[lang] ?? "📄";
-  if (icon.startsWith("/")) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={icon} alt="" width={14} height={14} className="object-contain inline-block" />;
-  }
+  if (icon.startsWith("/")) return <img src={icon} alt="" className="w-3 h-3 object-contain" />;
   return <span className="text-xs">{icon}</span>;
 }
 
