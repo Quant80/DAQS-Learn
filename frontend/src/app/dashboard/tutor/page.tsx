@@ -52,7 +52,7 @@ type GraphSpec = {
   axisOfSymmetry?: number;
 };
 
-const PROVIDERS: AIProvider[] = ["claude", "openai", "deepseek", "gemini"];
+const PROVIDERS: AIProvider[] = ["claude", "openai", "deepseek", "gemini", "groq"];
 
 const STARTERS = [
   "Solve x² - 4x + 4 = 0 and plot the graph",

@@ -9,7 +9,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ─── Provider types ─────────────────────────────────────────────────────────
 
-export type AIProvider = "claude" | "openai" | "deepseek" | "gemini";
+export type AIProvider = "claude" | "openai" | "deepseek" | "gemini" | "groq";
 
 export interface AIModel {
   id: string;
@@ -87,6 +87,30 @@ export const AI_MODELS: AIModel[] = [
     description: "DeepSeek's reasoning model — step-by-step thinking",
     badge: "Reasoning",
   },
+  // Groq (open-weight models, hosted inference)
+  {
+    id: "llama-3.3-70b-versatile",
+    name: "Llama 3.3 70B",
+    provider: "groq",
+    contextWindow: "128K",
+    description: "Meta's open-weight flagship model — fast, free-tier friendly",
+    badge: "Free",
+  },
+  {
+    id: "deepseek-r1-distill-llama-70b",
+    name: "DeepSeek R1 (Distilled)",
+    provider: "groq",
+    contextWindow: "128K",
+    description: "Open-weight reasoning model distilled onto Llama 70B",
+    badge: "Reasoning",
+  },
+  {
+    id: "gemma2-9b-it",
+    name: "Gemma 2 9B",
+    provider: "groq",
+    contextWindow: "8K",
+    description: "Google's lightweight open-weight model — very fast responses",
+  },
   // Gemini
   {
     id: "gemini-2.0-flash",
@@ -118,6 +142,7 @@ export const PROVIDER_META: Record<AIProvider, { label: string; icon: string; co
   openai:   { label: "OpenAI",   icon: "⚫", color: "text-white/80",    bgColor: "bg-white/8",         borderColor: "border-white/20"       },
   deepseek: { label: "DeepSeek", icon: "🔵", color: "text-sky-400",     bgColor: "bg-sky-500/10",     borderColor: "border-sky-500/30"     },
   gemini:   { label: "Gemini",   icon: "🔷", color: "text-blue-400",    bgColor: "bg-blue-500/10",    borderColor: "border-blue-500/30"    },
+  groq:     { label: "Groq",     icon: "⚡", color: "text-purple-400",  bgColor: "bg-purple-500/10",  borderColor: "border-purple-500/30"  },
 };
 
 export function getModelsByProvider(provider: AIProvider): AIModel[] {
@@ -207,6 +232,35 @@ export async function streamChat(
     const client = new OpenAI({
       apiKey: process.env.DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com",
+    });
+    return new ReadableStream({
+      async start(controller) {
+        try {
+          const stream = await client.chat.completions.create({
+            model: modelId,
+            max_tokens: 8192,
+            stream: true,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...messages,
+            ],
+          });
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content;
+            if (text) controller.enqueue(encoder.encode(text));
+          }
+          controller.close();
+        } catch (err) {
+          streamError(controller, encoder, err);
+        }
+      },
+    });
+  }
+
+  if (provider === "groq") {
+    const client = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
     });
     return new ReadableStream({
       async start(controller) {
@@ -325,6 +379,19 @@ export async function complete(
     return result.response.text();
   }
 
+  if (provider === "groq") {
+    const client = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+    });
+    const response = await client.chat.completions.create({
+      model: modelId,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return response.choices[0]?.message?.content ?? "";
+  }
+
   throw new Error(`Unsupported provider: ${provider}`);
 }
 
@@ -336,5 +403,6 @@ export function hasProviderKey(provider: AIProvider): boolean {
     case "openai":   return !!process.env.OPENAI_API_KEY;
     case "deepseek": return !!process.env.DEEPSEEK_API_KEY;
     case "gemini":   return !!(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_2);
+    case "groq":     return !!process.env.GROQ_API_KEY;
   }
 }
