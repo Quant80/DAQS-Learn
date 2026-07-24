@@ -97,19 +97,19 @@ export const AI_MODELS: AIModel[] = [
     badge: "Free",
   },
   {
-    id: "deepseek-r1-distill-llama-70b",
-    name: "DeepSeek R1 (Distilled)",
+    id: "qwen/qwen3.6-27b",
+    name: "Qwen 3.6 27B",
     provider: "groq",
     contextWindow: "128K",
-    description: "Open-weight reasoning model distilled onto Llama 70B",
+    description: "Open-weight reasoning model — step-by-step thinking",
     badge: "Reasoning",
   },
   {
-    id: "gemma2-9b-it",
-    name: "Gemma 2 9B",
+    id: "llama-3.1-8b-instant",
+    name: "Llama 3.1 8B",
     provider: "groq",
-    contextWindow: "8K",
-    description: "Google's lightweight open-weight model — very fast responses",
+    contextWindow: "128K",
+    description: "Meta's lightweight open-weight model — very fast responses",
   },
   // Ollama (local dev only — requires `ollama serve` running on your own machine)
   {
@@ -240,6 +240,12 @@ class ThinkTagFilter {
   }
 }
 
+/** Groq model ids that emit a <think> reasoning trace by default. */
+const GROQ_REASONING_MODEL_IDS = new Set(["qwen/qwen3.6-27b"]);
+function isGroqReasoningModel(modelId: string): boolean {
+  return GROQ_REASONING_MODEL_IDS.has(modelId);
+}
+
 export async function streamChat(
   provider: AIProvider,
   modelId: string,
@@ -332,9 +338,9 @@ export async function streamChat(
       apiKey: process.env.GROQ_API_KEY,
       baseURL: "https://api.groq.com/openai/v1",
     });
-    // Groq's own flag to suppress R1's <think> reasoning trace server-side —
+    // Groq's own flag to suppress a reasoning model's <think> trace server-side —
     // no vendor field for it in the SDK's request types, so cast the extra param.
-    const extra = modelId.includes("deepseek-r1") ? { reasoning_format: "hidden" } : {};
+    const extra = isGroqReasoningModel(modelId) ? { reasoning_format: "hidden" } : {};
     return new ReadableStream({
       async start(controller) {
         try {
@@ -493,11 +499,13 @@ export async function complete(
       apiKey: process.env.GROQ_API_KEY,
       baseURL: "https://api.groq.com/openai/v1",
     });
+    const extra = isGroqReasoningModel(modelId) ? { reasoning_format: "hidden" } : {};
     const response = await client.chat.completions.create({
       model: modelId,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
-    });
+      ...extra,
+    } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
     return response.choices[0]?.message?.content ?? "";
   }
 
