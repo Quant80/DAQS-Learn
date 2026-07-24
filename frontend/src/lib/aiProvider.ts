@@ -204,6 +204,42 @@ function streamError(controller: ReadableStreamDefaultController<Uint8Array>, en
   controller.close();
 }
 
+/**
+ * Reasoning models (e.g. DeepSeek R1) emit their raw chain-of-thought inline
+ * as <think>...</think> before the real answer. Strips it from a token
+ * stream without ever holding more than a few bytes across chunk
+ * boundaries, so a tag split across two chunks still gets caught.
+ */
+class ThinkTagFilter {
+  private inThink = false;
+  private buffer = "";
+  private static readonly OPEN = "<think>";
+  private static readonly CLOSE = "</think>";
+
+  feed(chunk: string): string {
+    this.buffer += chunk;
+    let out = "";
+    for (;;) {
+      const tag = this.inThink ? ThinkTagFilter.CLOSE : ThinkTagFilter.OPEN;
+      const idx = this.buffer.indexOf(tag);
+      if (idx === -1) {
+        const keep = Math.min(this.buffer.length, tag.length - 1);
+        if (!this.inThink) out += this.buffer.slice(0, this.buffer.length - keep);
+        this.buffer = this.buffer.slice(this.buffer.length - keep);
+        return out;
+      }
+      if (!this.inThink) out += this.buffer.slice(0, idx);
+      this.buffer = this.buffer.slice(idx + tag.length);
+      this.inThink = !this.inThink;
+    }
+  }
+
+  /** Call once the source stream ends — flushes any trailing non-think text. */
+  flush(): string {
+    return this.inThink ? "" : this.buffer;
+  }
+}
+
 export async function streamChat(
   provider: AIProvider,
   modelId: string,
@@ -296,6 +332,9 @@ export async function streamChat(
       apiKey: process.env.GROQ_API_KEY,
       baseURL: "https://api.groq.com/openai/v1",
     });
+    // Groq's own flag to suppress R1's <think> reasoning trace server-side —
+    // no vendor field for it in the SDK's request types, so cast the extra param.
+    const extra = modelId.includes("deepseek-r1") ? { reasoning_format: "hidden" } : {};
     return new ReadableStream({
       async start(controller) {
         try {
@@ -307,7 +346,8 @@ export async function streamChat(
               { role: "system", content: systemPrompt },
               ...messages,
             ],
-          });
+            ...extra,
+          } as OpenAI.Chat.ChatCompletionCreateParamsStreaming);
           for await (const chunk of stream) {
             const text = chunk.choices[0]?.delta?.content;
             if (text) controller.enqueue(encoder.encode(text));
@@ -327,6 +367,7 @@ export async function streamChat(
     });
     return new ReadableStream({
       async start(controller) {
+        const thinkFilter = new ThinkTagFilter();
         try {
           const stream = await client.chat.completions.create({
             model: modelId,
@@ -339,8 +380,13 @@ export async function streamChat(
           });
           for await (const chunk of stream) {
             const text = chunk.choices[0]?.delta?.content;
-            if (text) controller.enqueue(encoder.encode(text));
+            if (text) {
+              const visible = thinkFilter.feed(text);
+              if (visible) controller.enqueue(encoder.encode(visible));
+            }
           }
+          const tail = thinkFilter.flush();
+          if (tail) controller.enqueue(encoder.encode(tail));
           controller.close();
         } catch (err) {
           streamError(controller, encoder, err);
@@ -465,7 +511,8 @@ export async function complete(
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     });
-    return response.choices[0]?.message?.content ?? "";
+    const content = response.choices[0]?.message?.content ?? "";
+    return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   }
 
   throw new Error(`Unsupported provider: ${provider}`);
