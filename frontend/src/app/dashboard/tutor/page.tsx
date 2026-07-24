@@ -109,7 +109,7 @@ function MathGraph({ spec }: { spec: GraphSpec }) {
   const domainY: [number, number] = [computedYMin, computedYMax];
 
   return (
-    <div className="my-4 bg-[#060e1f] border border-white/10 rounded-xl p-4 overflow-hidden max-w-[420px] mx-auto">
+    <div data-tutor-graph className="my-4 bg-[#060e1f] border border-white/10 rounded-xl p-4 overflow-hidden max-w-[420px] mx-auto">
       {spec.title && (
         <p className="text-white/70 text-sm font-semibold mb-3 text-center">{spec.title}</p>
       )}
@@ -265,6 +265,174 @@ function CopyButton({ text }: { text: string }) {
       className="text-[10px] text-white/40 hover:text-white/70 border border-white/10 rounded px-2 py-0.5 transition-colors"
     >
       {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
+/** Inline element→style map used to make a copied answer readable on a plain white document. */
+const DOC_STYLES: Record<string, string> = {
+  H1: "font-size:20px;font-weight:700;margin:16px 0 8px;color:#111827;",
+  H2: "font-size:18px;font-weight:700;margin:14px 0 8px;color:#111827;",
+  H3: "font-size:16px;font-weight:700;margin:12px 0 6px;color:#111827;",
+  P: "margin:0 0 10px;color:#111827;line-height:1.6;",
+  STRONG: "font-weight:700;color:#111827;",
+  EM: "font-style:italic;color:#374151;",
+  UL: "margin:0 0 10px 20px;padding:0;color:#111827;",
+  OL: "margin:0 0 10px 20px;padding:0;color:#111827;",
+  LI: "margin:2px 0;color:#111827;",
+  BLOCKQUOTE: "border-left:3px solid #93c5fd;margin:8px 0;padding:4px 0 4px 12px;color:#4b5563;font-style:italic;",
+  CODE: "background:#f3f4f6;color:#b91c1c;border-radius:4px;padding:1px 5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.9em;",
+  PRE: "background:#0b1220;color:#e5e7eb;border-radius:8px;padding:12px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;",
+  TABLE: "border-collapse:collapse;width:100%;margin:12px 0;",
+  TH: "border:1px solid #d1d5db;background:#f3f4f6;color:#111827;padding:8px 10px;text-align:left;font-weight:700;",
+  TD: "border:1px solid #e5e7eb;color:#111827;padding:8px 10px;",
+  HR: "border:none;border-top:1px solid #e5e7eb;margin:14px 0;",
+};
+
+/** Strips app-specific (dark-theme) classes and applies plain-document-friendly inline styles instead. */
+function neutraliseForDocument(root: HTMLElement) {
+  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+  for (const el of elements) {
+    el.removeAttribute("class");
+    const style = DOC_STYLES[el.tagName];
+    if (style) el.setAttribute("style", style);
+  }
+}
+
+/** Renders a live DOM node (off-screen, so nothing flickers on screen) into a PNG <img>. */
+async function rasterizeNode(
+  liveNode: HTMLElement,
+  html2canvas: (el: HTMLElement, opts: Record<string, unknown>) => Promise<HTMLCanvasElement>,
+  opts: { background: string; scale?: number; wrapperStyle?: string }
+): Promise<HTMLImageElement | null> {
+  const offscreen = document.createElement("div");
+  offscreen.style.cssText = `position:fixed;left:-9999px;top:0;display:inline-block;${opts.wrapperStyle ?? ""}`;
+  offscreen.appendChild(liveNode.cloneNode(true));
+  document.body.appendChild(offscreen);
+  try {
+    const scale = opts.scale ?? 3;
+    const canvas = await html2canvas(offscreen, {
+      scale,
+      backgroundColor: opts.background,
+      useCORS: true,
+      allowTaint: true,
+    });
+    const img = document.createElement("img");
+    img.src = canvas.toDataURL("image/png");
+    img.style.cssText = `display:inline-block;vertical-align:middle;height:${Math.round(canvas.height / scale)}px;width:${Math.round(canvas.width / scale)}px;`;
+    img.alt = liveNode.textContent ?? "";
+    return img;
+  } catch {
+    return null;
+  } finally {
+    offscreen.remove();
+  }
+}
+
+/**
+ * Builds a Google Docs/Gmail-friendly HTML version of a rendered answer: equations and the
+ * graph are rasterized to PNGs (so they render correctly with no external CSS/fonts needed),
+ * while tables, headings, lists, and code stay as real, editable HTML.
+ */
+/** LaTeX source KaTeX embeds per-formula for accessibility — also lets us judge visual complexity. */
+function getLatexSource(katexNode: HTMLElement): string {
+  return katexNode.querySelector('annotation[encoding="application/x-tex"]')?.textContent ?? katexNode.textContent ?? "";
+}
+
+/** Simple refs like "$x$" or "$a = 1$" read fine as plain text — only fractions/exponents/roots/symbols need a real image. */
+function needsRasterImage(latex: string): boolean {
+  return /\\|[\^_{}]/.test(latex);
+}
+
+async function buildRichAnswerHtml(container: HTMLElement): Promise<string> {
+  const { default: html2canvas } = await import("html2canvas-pro");
+  const clone = container.cloneNode(true) as HTMLElement;
+
+  const liveEquations = Array.from(container.querySelectorAll<HTMLElement>(".katex"));
+  const cloneEquations = Array.from(clone.querySelectorAll<HTMLElement>(".katex"));
+  for (let i = 0; i < liveEquations.length; i++) {
+    const target = cloneEquations[i];
+    if (!target) continue;
+    const latex = getLatexSource(liveEquations[i]);
+    const displayWrapper = target.closest(".katex-display");
+
+    if (!needsRasterImage(latex)) {
+      const text = document.createElement("em");
+      text.textContent = latex;
+      text.style.cssText = "font-style:italic;color:#111827;";
+      (displayWrapper ?? target).replaceWith(text);
+      continue;
+    }
+
+    const img = await rasterizeNode(liveEquations[i], html2canvas, {
+      background: "#ffffff",
+      wrapperStyle: "color:#111827;padding:2px 4px;",
+    });
+    if (!img) continue;
+    if (displayWrapper) {
+      const centered = document.createElement("div");
+      centered.style.cssText = "text-align:center;margin:10px 0;";
+      centered.appendChild(img);
+      displayWrapper.replaceWith(centered);
+    } else {
+      target.replaceWith(img);
+    }
+  }
+
+  const liveGraphs = Array.from(container.querySelectorAll<HTMLElement>("[data-tutor-graph]"));
+  const cloneGraphs = Array.from(clone.querySelectorAll<HTMLElement>("[data-tutor-graph]"));
+  for (let i = 0; i < liveGraphs.length; i++) {
+    const img = await rasterizeNode(liveGraphs[i], html2canvas, { background: "#060e1f", scale: 2 });
+    if (img) {
+      img.style.cssText += "display:block;max-width:420px;width:100%;margin:12px auto;border-radius:12px;";
+      cloneGraphs[i]?.replaceWith(img);
+    }
+  }
+
+  neutraliseForDocument(clone);
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;">${clone.innerHTML}</div>`;
+}
+
+/** Copies a rendered answer as rich HTML (formatted table, rasterized equations/graph) with a plain-text fallback. */
+async function copyRichAnswer(container: HTMLElement, rawText: string): Promise<"rich" | "plain" | "failed"> {
+  try {
+    const html = await buildRichAnswerHtml(container);
+    if (typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) throw new Error("unsupported");
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([rawText], { type: "text/plain" }),
+      }),
+    ]);
+    return "rich";
+  } catch {
+    try {
+      await navigator.clipboard.writeText(rawText);
+      return "plain";
+    } catch {
+      return "failed";
+    }
+  }
+}
+
+function RichCopyButton({ getContainer, rawText }: { getContainer: () => HTMLElement | null; rawText: string }) {
+  const [status, setStatus] = useState<"idle" | "working" | "copied" | "failed">("idle");
+
+  async function handleClick() {
+    const container = getContainer();
+    setStatus("working");
+    const result = container ? await copyRichAnswer(container, rawText) : "failed";
+    setStatus(result === "failed" ? "failed" : "copied");
+    setTimeout(() => setStatus("idle"), 2000);
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={status === "working"}
+      className="text-[10px] text-white/40 hover:text-white/70 border border-white/10 rounded px-2 py-0.5 transition-colors disabled:opacity-60"
+    >
+      {status === "working" ? "Copying…" : status === "copied" ? "Copied!" : status === "failed" ? "Copy failed" : "Copy"}
     </button>
   );
 }
@@ -439,6 +607,7 @@ function MessageBubble({
   const isUser = msg.role === "user";
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(msg.content);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   if (msg.type === "question_prompt" && msg.questionMeta) {
     return <QuestionCard meta={msg.questionMeta} />;
@@ -465,7 +634,7 @@ function MessageBubble({
         {isUser ? "U" : "AI"}
       </div>
       <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} max-w-[85%] min-w-0`}>
-      <div className={`w-full rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+      <div ref={contentRef} className={`w-full rounded-2xl px-4 py-3 text-sm leading-relaxed ${
         isUser
           ? "bg-sky-500/15 border border-sky-500/20 text-white rounded-tr-sm"
           : "bg-white/[0.04] border border-white/10 text-white/90 rounded-tl-sm"
@@ -608,7 +777,9 @@ function MessageBubble({
               ✏️ Edit
             </button>
           )}
-          {!isUser && msg.content && <CopyButton text={msg.content} />}
+          {!isUser && msg.content && (
+            <RichCopyButton getContainer={() => contentRef.current} rawText={msg.content} />
+          )}
           {!isUser && onRegenerate && (
             <button
               onClick={onRegenerate}
